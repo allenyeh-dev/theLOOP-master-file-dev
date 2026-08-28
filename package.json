@@ -1,0 +1,32 @@
+{
+  "name": "master-file-dev",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloudflare full-stack starter: Vite + React frontend, Hono + Workers backend, D1 database",
+  "type": "module",
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n WORKER,FRONTEND -c blue,green \"npm:dev:worker\" \"npm:dev:frontend\"",
+    "dev:worker": "wrangler dev",
+    "dev:frontend": "npm run dev --workspace frontend",
+    "deploy": "wrangler deploy",
+    "cf-typegen": "wrangler types",
+    "db:migrations:create": "wrangler d1 migrations create DB",
+    "db:migrations:apply:local": "wrangler d1 migrations apply DB --local",
+    "db:migrations:apply:remote": "wrangler d1 migrations apply DB --remote",
+    "db:seed:demo-users": "node scripts/generate-demo-users.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "hono": "^4.13.5"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.127.0"
+  }
+}

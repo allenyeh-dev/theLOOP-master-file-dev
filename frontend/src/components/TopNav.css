@@ -1,0 +1,83 @@
+.topnav {
+  border-bottom: 1px solid var(--border);
+}
+
+.role-tabs {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.75rem 1rem 0;
+  scrollbar-width: none;
+}
+
+.role-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.role-tab {
+  flex: none;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.role-tab--demo {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.role-tab.is-active {
+  background: var(--accent);
+  color: #1a1510;
+  border-color: var(--accent);
+}
+
+.topnav-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+}
+
+.topnav-main .logo {
+  font-family: 'Permanent Marker', cursive;
+  font-size: 1.8rem;
+  color: var(--text);
+  transform: rotate(-2deg);
+}
+
+.avatar-button {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.avatar-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--accent);
+  color: #1a1510;
+  font-size: 0.65rem;
+  font-weight: 700;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

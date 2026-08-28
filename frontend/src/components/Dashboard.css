@@ -1,0 +1,67 @@
+.dashboard {
+  position: relative;
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.content {
+  padding: 1.5rem 1rem 3rem;
+}
+
+.welcome-panel {
+  margin-bottom: 1.5rem;
+}
+
+.welcome-label {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  margin-bottom: 0.4rem;
+}
+
+.welcome-name {
+  font-size: 2rem;
+  margin: 0 0 0.35rem;
+  color: var(--text);
+}
+
+.welcome-title {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.preview-banner {
+  background: var(--panel-alt);
+  border: 1px dashed var(--accent);
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-bottom: 1.5rem;
+}
+
+.preview-banner strong {
+  color: var(--accent);
+}
+
+.access-section {
+  margin-top: 0.5rem;
+}
+
+.permission-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.7rem;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9rem;
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
