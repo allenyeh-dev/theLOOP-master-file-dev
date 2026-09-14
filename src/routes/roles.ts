@@ -33,6 +33,7 @@ roleRoutes.get('/', requireAuth, requirePermission('users.manage'), async (c) =>
   return c.json({
     success: true,
     roles: roles.map((role) => ({
+      id: role.id,
       key: role.key,
       label: role.label,
       permissions: permissionsByRole.get(role.id) ?? [],

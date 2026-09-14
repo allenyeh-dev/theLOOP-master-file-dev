@@ -4,6 +4,7 @@ import { fetchRoles } from '../api/data'
 import { TopNav } from './TopNav'
 import { ProfileMenu } from './ProfileMenu'
 import { Announcements } from './Announcements'
+import { AdminPanel } from './AdminPanel'
 import './Dashboard.css'
 
 const PERMISSION_LABELS = {
@@ -20,6 +21,7 @@ export function Dashboard() {
   const [roles, setRoles] = useState([])
   const [viewAsRoleKey, setViewAsRoleKey] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [adminPanelOpen, setAdminPanelOpen] = useState(false)
 
   const canSwitchView = hasPermission('users.manage')
 
@@ -49,8 +51,16 @@ export function Dashboard() {
       />
 
       {menuOpen && (
-        <ProfileMenu user={user} onClose={() => setMenuOpen(false)} onSignOut={logout} />
+        <ProfileMenu
+          user={user}
+          onClose={() => setMenuOpen(false)}
+          onSignOut={logout}
+          canManageUsers={canSwitchView}
+          onOpenAdminPanel={() => setAdminPanelOpen(true)}
+        />
       )}
+
+      {adminPanelOpen && <AdminPanel roles={roles} onClose={() => setAdminPanelOpen(false)} />}
 
       <main className="content">
         <section className="welcome-panel">

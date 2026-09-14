@@ -3,7 +3,8 @@ import { cors } from 'hono/cors'
 import { authRoutes } from './routes/auth'
 import { roleRoutes } from './routes/roles'
 import { announcementRoutes } from './routes/announcements'
-import { requireAuth, requirePermission } from './middleware/auth'
+import { adminUserRoutes } from './routes/admin-users'
+import { requireAuth } from './middleware/auth'
 import type { AuthUser } from './lib/auth-db'
 
 type Bindings = {
@@ -48,6 +49,7 @@ app.get('/api/users', async (c) => {
 app.route('/api/auth', authRoutes)
 app.route('/api/roles', roleRoutes)
 app.route('/api/announcements', announcementRoutes)
+app.route('/api/admin/users', adminUserRoutes)
 
 // Any authenticated account, regardless of role, can see the staff directory.
 app.get('/api/staff', requireAuth, async (c) => {
@@ -59,18 +61,6 @@ app.get('/api/staff', requireAuth, async (c) => {
      ORDER BY u.name`
   ).all()
   return c.json({ success: true, staff: results })
-})
-
-// Only accounts whose role carries the 'users.manage' permission may list
-// full account details (fine-grained RBAC example).
-app.get('/api/admin/users', requireAuth, requirePermission('users.manage'), async (c) => {
-  const { results } = await c.env.DB.prepare(
-    `SELECT u.id, u.name, u.email, u.title, u.is_active, r.key as role
-     FROM users u
-     LEFT JOIN roles r ON r.id = u.role_id
-     ORDER BY u.id`
-  ).all()
-  return c.json({ success: true, users: results })
 })
 
 export default app

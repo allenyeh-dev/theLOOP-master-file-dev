@@ -47,9 +47,10 @@
 
 .topnav-main .logo {
   font-family: 'Permanent Marker', cursive;
-  font-size: 1.8rem;
+  font-size: 2.3rem;
   color: var(--text);
-  transform: rotate(-2deg);
+  font-weight: 800;
+  /* transform: rotate(-2deg); */
 }
 
 .avatar-button {

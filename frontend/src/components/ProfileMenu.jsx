@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ChartIcon, GearIcon, SignOutIcon } from './icons'
 import './ProfileMenu.css'
 
-export function ProfileMenu({ user, onSignOut, onClose }) {
+export function ProfileMenu({ user, onSignOut, onClose, canManageUsers, onOpenAdminPanel }) {
   const [language, setLanguage] = useState('en')
 
   return (
@@ -39,7 +39,15 @@ export function ProfileMenu({ user, onSignOut, onClose }) {
           Access Logs
         </button>
 
-        <button type="button" className="profile-menu-row profile-menu-row--link" disabled>
+        <button
+          type="button"
+          className="profile-menu-row profile-menu-row--link"
+          disabled={!canManageUsers}
+          onClick={() => {
+            onClose()
+            onOpenAdminPanel()
+          }}
+        >
           <GearIcon />
           Admin Panel
         </button>
