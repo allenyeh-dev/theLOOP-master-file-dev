@@ -14,13 +14,21 @@ export function TopNav({
     <header className="topnav">
       {canSwitchView && (
         <nav className="role-tabs">
-          <button
+			{/* <span>
+				DEMO
+			</span> */}
+			<button
+			// type='button'
+			className='role-tab--demo' disabled>
+				DEMO
+			</button>
+          {/* <button
             type="button"
             className={`role-tab role-tab--demo ${!activeRoleKey ? 'is-active' : ''}`}
             onClick={onResetView}
           >
             DEMO
-          </button>
+          </button> */}
           {roles.map((role) => (
             <button
               type="button"

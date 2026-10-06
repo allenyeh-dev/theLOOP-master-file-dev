@@ -1,0 +1,76 @@
+.executive-overview {
+  padding-top: 0.25rem;
+}
+
+.playbook-cta {
+  position: relative;
+  overflow: hidden;
+  display: block;
+  width: 100%;
+  margin-bottom: 1rem;
+  padding: 15px 16px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(227, 168, 63, 0.4);
+  background:
+    radial-gradient(130% 150% at 100% -10%, rgba(227, 168, 63, 0.24), transparent 60%),
+    linear-gradient(160deg, #2c2413 0%, #16130f 75%);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.playbook-cta:active {
+  transform: scale(0.98);
+}
+
+.playbook-cta-icon {
+  color: var(--accent);
+  margin-bottom: 6px;
+  display: block;
+}
+
+.playbook-cta-eyebrow {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.playbook-cta-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.05;
+  margin-bottom: 5px;
+}
+
+.playbook-cta-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-bottom: 10px;
+  max-width: 88%;
+  position: relative;
+  z-index: 1;
+}
+
+.playbook-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #171310;
+  background: var(--accent);
+  padding: 7px 12px;
+  border-radius: 18px;
+  position: relative;
+  z-index: 1;
+}

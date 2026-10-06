@@ -7,3 +7,7 @@ export function fetchRoles() {
 export function fetchAnnouncements() {
   return request('/api/announcements')
 }
+
+export function fetchHappenings() {
+  return request('/api/happenings')
+}

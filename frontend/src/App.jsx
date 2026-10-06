@@ -1,6 +1,7 @@
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { LoginPage } from './components/LoginPage'
 import { Dashboard } from './components/Dashboard'
+import { AdminConsole, isConsolePath } from './console/AdminConsole'
 import './App.css'
 
 function AppShell() {
@@ -10,7 +11,8 @@ function AppShell() {
     return <div className="app-loading">Loading…</div>
   }
 
-  return user ? <Dashboard /> : <LoginPage />
+  if (!user) return <LoginPage />
+  return isConsolePath() ? <AdminConsole /> : <Dashboard />
 }
 
 function App() {

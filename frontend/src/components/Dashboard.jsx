@@ -4,6 +4,9 @@ import { fetchRoles } from '../api/data'
 import { TopNav } from './TopNav'
 import { ProfileMenu } from './ProfileMenu'
 import { Announcements } from './Announcements'
+import { WhatsHappening } from './WhatsHappening'
+import { AdminHub } from './AdminHub'
+import { ExecutiveOverview } from './ExecutiveOverview'
 import { AdminPanel } from './AdminPanel'
 import './Dashboard.css'
 
@@ -34,16 +37,20 @@ export function Dashboard() {
 
   if (!user) return null
 
-  const previewedRole = roles.find((r) => r.key === viewAsRoleKey) || null
+  const previewedRole =
+    viewAsRoleKey && viewAsRoleKey !== user.role.key
+      ? roles.find((r) => r.key === viewAsRoleKey) || null
+      : null
   const effectivePermissions = previewedRole ? previewedRole.permissions : user.permissions
   const badgeSource = previewedRole ? previewedRole.label : user.role.label
+  const effectiveRoleKey = previewedRole ? previewedRole.key : user.role.key
 
   return (
     <div className="dashboard">
       <TopNav
         canSwitchView={canSwitchView}
         roles={roles}
-        activeRoleKey={viewAsRoleKey}
+        activeRoleKey={viewAsRoleKey ?? user.role.key}
         onSelectRole={setViewAsRoleKey}
         onResetView={() => setViewAsRoleKey(null)}
         badgeLabel={badgeSource ? badgeSource[0].toUpperCase() : null}
@@ -63,32 +70,42 @@ export function Dashboard() {
       {adminPanelOpen && <AdminPanel roles={roles} onClose={() => setAdminPanelOpen(false)} />}
 
       <main className="content">
-        <section className="welcome-panel">
-          <p className="welcome-label">WELCOME BACK</p>
-          <h1 className="welcome-name">{user.name}</h1>
-          <p className="welcome-title">{user.title || user.role.label}</p>
-        </section>
-
         {previewedRole && (
           <p className="preview-banner">
             Previewing as <strong>{previewedRole.label}</strong>
           </p>
         )}
 
-        <Announcements />
+        {effectiveRoleKey === 'admin' || effectiveRoleKey === 'ownership' ? (
+          <AdminHub user={user} />
+        ) : effectiveRoleKey === 'executive' ? (
+          <ExecutiveOverview user={user} />
+        ) : (
+          <>
+            <section className="welcome-panel">
+              <p className="welcome-label">WELCOME BACK</p>
+              <h1 className="welcome-name">{user.name}</h1>
+              <p className="welcome-title">{user.title || user.role.label}</p>
+            </section>
 
-        <section className="access-section">
-          <p className="section-label">{previewedRole ? `${previewedRole.label} ACCESS` : 'YOUR ACCESS'}</p>
-          <div className="permission-grid">
-            {Object.entries(PERMISSION_LABELS)
-              .filter(([key]) => effectivePermissions.includes(key))
-              .map(([key, label]) => (
-                <div className="card" key={key}>
-                  {label}
-                </div>
-              ))}
-          </div>
-        </section>
+            <Announcements />
+
+            <WhatsHappening />
+
+            <section className="access-section">
+              <p className="section-label">{previewedRole ? `${previewedRole.label} ACCESS` : 'YOUR ACCESS'}</p>
+              <div className="permission-grid">
+                {Object.entries(PERMISSION_LABELS)
+                  .filter(([key]) => effectivePermissions.includes(key))
+                  .map(([key, label]) => (
+                    <div className="card" key={key}>
+                      {label}
+                    </div>
+                  ))}
+              </div>
+            </section>
+          </>
+        )}
       </main>
     </div>
   )

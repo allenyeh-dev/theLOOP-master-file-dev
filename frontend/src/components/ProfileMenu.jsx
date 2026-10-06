@@ -52,6 +52,13 @@ export function ProfileMenu({ user, onSignOut, onClose, canManageUsers, onOpenAd
           Admin Panel
         </button>
 
+        {['admin', 'ownership'].includes(user.role.key) && (
+          <a href="/admin" className="profile-menu-row profile-menu-row--link">
+            <GearIcon />
+            Admin Console
+          </a>
+        )}
+
         <button
           type="button"
           className="profile-menu-row profile-menu-row--signout"

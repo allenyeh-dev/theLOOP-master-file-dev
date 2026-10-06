@@ -3,7 +3,9 @@ import { cors } from 'hono/cors'
 import { authRoutes } from './routes/auth'
 import { roleRoutes } from './routes/roles'
 import { announcementRoutes } from './routes/announcements'
+import { happeningRoutes } from './routes/happenings'
 import { adminUserRoutes } from './routes/admin-users'
+import { consoleRoutes } from './routes/console'
 import { requireAuth } from './middleware/auth'
 import type { AuthUser } from './lib/auth-db'
 
@@ -21,7 +23,7 @@ app.use(
   '/api/*',
   cors({
     origin: ['http://localhost:5173'],
-    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type'],
     credentials: true,
   })
@@ -49,7 +51,9 @@ app.get('/api/users', async (c) => {
 app.route('/api/auth', authRoutes)
 app.route('/api/roles', roleRoutes)
 app.route('/api/announcements', announcementRoutes)
+app.route('/api/happenings', happeningRoutes)
 app.route('/api/admin/users', adminUserRoutes)
+app.route('/api/console', consoleRoutes)
 
 // Any authenticated account, regardless of role, can see the staff directory.
 app.get('/api/staff', requireAuth, async (c) => {
