@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { ADMIN_HERO, ADMIN_QUICK_ACTIONS, ADMIN_STATS, OUTLETS } from '../data/executiveOverview'
+import { ADMIN_HERO, ADMIN_QUICK_ACTIONS, ADMIN_STATS, OUTLETS, filterByBrands } from '../data/executiveOverview'
 import { greetingForNow, dashDateShort } from '../utils/overviewDate'
 import { BrandHealthStrip } from './BrandHealthStrip'
 import { StatsRow } from './StatsRow'
@@ -23,6 +23,12 @@ export function AdminHub({ user }) {
   const [toastMsg, setToastMsg] = useState(null)
   const toastTimer = useRef(null)
 
+  const outlets = filterByBrands(OUTLETS, user.brands)
+  const brandScope = user.brands.map((b) => b.label).join(' · ') || 'No brands'
+  const activeOutlets = outlets.filter((o) => o.covers !== null).length
+  const stats = ADMIN_STATS.map((s) =>
+    s.label === 'Covers Last Night' ? { ...s, val: outlets.reduce((n, o) => n + (o.covers ?? 0), 0) } : s
+  )
   const firstName = user.name.split(' ')[0]
 
   function showComingSoon() {
@@ -34,12 +40,12 @@ export function AdminHub({ user }) {
   return (
     <div className="admin-hub">
       <div className="exec-hero admin-hero">
-        <div className="exec-hero-sup">Admin Hub · All Brands</div>
+        <div className="exec-hero-sup">Admin Hub · {brandScope}</div>
         <div className="exec-hero-name">
           {greetingForNow()}, {firstName}
         </div>
         <div className="exec-hero-sub">
-          {dashDateShort(dateOffset)} · {ADMIN_HERO.outletsActive} Outlets Active · Last updated {ADMIN_HERO.lastUpdated}
+          {dashDateShort(dateOffset)} · {activeOutlets} Outlets Active · Last updated {ADMIN_HERO.lastUpdated}
         </div>
         <DateStepper
           label={dashDateShort(dateOffset)}
@@ -58,9 +64,9 @@ export function AdminHub({ user }) {
         </div>
       </div>
 
-      <BrandHealthStrip outlets={OUTLETS} mode="admin" />
+      <BrandHealthStrip outlets={outlets} mode="admin" />
 
-      <StatsRow stats={ADMIN_STATS} />
+      <StatsRow stats={stats} />
 
       <div className="admin-quick-grid">
         {ADMIN_QUICK_ACTIONS.map((a) => {

@@ -9,10 +9,11 @@ export const happeningRoutes = new Hono<{ Bindings: Bindings; Variables: Variabl
 
 happeningRoutes.get('/', requireAuth, async (c) => {
   const { results: happenings } = await c.env.DB.prepare(
-    `SELECT id, brand, accent, icon, tag_label, title, event_date, detail
-     FROM brand_happenings
-     ORDER BY sort_order, id`
-  ).all<{
+    `SELECT h.id, h.brand, h.accent, h.icon, h.tag_label, h.title, h.event_date, h.detail
+     FROM brand_happenings h
+     JOIN user_brands ub ON ub.brand_id = h.brand_id AND ub.user_id = ?
+     ORDER BY h.sort_order, h.id`
+  ).bind(c.get('user').id).all<{
     id: number
     brand: string
     accent: string

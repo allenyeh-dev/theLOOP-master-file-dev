@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { EXEC_HERO, EXEC_STATS, OUTLETS } from '../data/executiveOverview'
+import { EXEC_HERO, EXEC_STATS, OUTLETS, filterByBrands } from '../data/executiveOverview'
 import { greetingForNow, dashDateLong } from '../utils/overviewDate'
 import { BrandHealthStrip } from './BrandHealthStrip'
 import { StatsRow } from './StatsRow'
@@ -15,6 +15,11 @@ export function ExecutiveOverview({ user }) {
   const [toastMsg, setToastMsg] = useState(null)
   const toastTimer = useRef(null)
 
+  const outlets = filterByBrands(OUTLETS, user.brands)
+  const activeOutlets = outlets.filter((o) => o.covers !== null).length
+  const stats = EXEC_STATS.map((s) =>
+    s.label === 'Covers Last Night' ? { ...s, val: outlets.reduce((n, o) => n + (o.covers ?? 0), 0) } : s
+  )
   const firstName = user.name.split(' ')[0]
 
   function showComingSoon() {
@@ -31,7 +36,7 @@ export function ExecutiveOverview({ user }) {
           {greetingForNow()}, {firstName}
         </div>
         <div className="exec-hero-sub">
-          {dashDateLong(dateOffset)} · {EXEC_HERO.outletsActive} Outlets Active
+          {dashDateLong(dateOffset)} · {activeOutlets} Outlets Active
         </div>
         <DateStepper
           label={dashDateLong(dateOffset)}
@@ -42,9 +47,9 @@ export function ExecutiveOverview({ user }) {
         />
       </div>
 
-      <BrandHealthStrip outlets={OUTLETS} mode="exec" />
+      <BrandHealthStrip outlets={outlets} mode="exec" />
 
-      <StatsRow stats={EXEC_STATS} />
+      <StatsRow stats={stats} />
 
       <button type="button" className="playbook-cta" onClick={showComingSoon}>
         <span className="playbook-cta-icon">

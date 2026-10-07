@@ -5,6 +5,7 @@ import {
   createSession,
   deleteSession,
   findUserByEmail,
+  getBrandsForUser,
   getPermissionsForRole,
   toAuthUser,
   type AuthUser,
@@ -45,7 +46,8 @@ authRoutes.post('/login', async (c) => {
   })
 
   const permissions = row.role_id ? await getPermissionsForRole(c.env.DB, row.role_id) : []
-  return c.json({ success: true, user: toAuthUser(row, permissions) })
+  const brands = await getBrandsForUser(c.env.DB, row.id)
+  return c.json({ success: true, user: toAuthUser(row, permissions, brands) })
 })
 
 authRoutes.post('/logout', async (c) => {

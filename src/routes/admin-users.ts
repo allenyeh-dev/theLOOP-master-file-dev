@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { requireAuth, requirePermission } from '../middleware/auth'
 import { hashPassword } from '../lib/password'
 import type { AuthUser } from '../lib/auth-db'
+import { insertUserBrands, replaceUserBrands, validBrandIds, withBrands } from '../lib/brands'
 
 type Bindings = { DB: D1Database }
 type Variables = { user: AuthUser }
@@ -22,6 +23,11 @@ async function findAssignableRole(db: D1Database, roleId: unknown) {
     .first<{ id: number }>()
 }
 
+adminUserRoutes.get('/brands', async (c) => {
+  const { results } = await c.env.DB.prepare(`SELECT id, key, label FROM brands ORDER BY sort_order, id`).all()
+  return c.json({ success: true, brands: results })
+})
+
 adminUserRoutes.get('/', async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT u.id, u.name, u.email, u.title, u.is_active,
@@ -29,8 +35,8 @@ adminUserRoutes.get('/', async (c) => {
      FROM users u
      LEFT JOIN roles r ON r.id = u.role_id
      ORDER BY u.id`
-  ).all()
-  return c.json({ success: true, users: results })
+  ).all<{ id: number }>()
+  return c.json({ success: true, users: await withBrands(c.env.DB, results) })
 })
 
 adminUserRoutes.post('/', async (c) => {
@@ -52,6 +58,11 @@ adminUserRoutes.post('/', async (c) => {
     return c.json({ success: false, error: 'A valid role is required' }, 400)
   }
 
+  const brandIds = await validBrandIds(c.env.DB, body?.brand_ids)
+  if (!brandIds) {
+    return c.json({ success: false, error: 'Select at least one valid brand' }, 400)
+  }
+
   const passwordHash = await hashPassword(password)
 
   try {
@@ -60,8 +71,10 @@ adminUserRoutes.post('/', async (c) => {
     )
       .bind(name, email, passwordHash, title, role.id)
       .run()
+    const userId = result.meta.last_row_id
+    await c.env.DB.batch(insertUserBrands(c.env.DB, userId, brandIds))
 
-    return c.json({ success: true, id: result.meta.last_row_id }, 201)
+    return c.json({ success: true, id: userId }, 201)
   } catch (err) {
     const message = (err as Error).message.includes('UNIQUE')
       ? 'An account with that email already exists'
@@ -120,18 +133,29 @@ adminUserRoutes.patch('/:id', async (c) => {
     values.push(await hashPassword(body.password))
   }
 
-  if (updates.length === 0) {
+  let brandIds: number[] | null = null
+  if (body.brand_ids !== undefined) {
+    brandIds = await validBrandIds(c.env.DB, body.brand_ids)
+    if (!brandIds) {
+      return c.json({ success: false, error: 'Select at least one valid brand' }, 400)
+    }
+  }
+
+  if (updates.length === 0 && !brandIds) {
     return c.json({ success: false, error: 'No changes provided' }, 400)
   }
 
-  values.push(id)
-  const result = await c.env.DB.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`)
-    .bind(...values)
-    .run()
-
-  if (result.meta.changes === 0) {
+  const exists = await c.env.DB.prepare(`SELECT id FROM users WHERE id = ?`).bind(id).first()
+  if (!exists) {
     return c.json({ success: false, error: 'Account not found' }, 404)
   }
+
+  const stmts: D1PreparedStatement[] = []
+  if (updates.length) {
+    stmts.push(c.env.DB.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).bind(...values, id))
+  }
+  if (brandIds) stmts.push(...replaceUserBrands(c.env.DB, id, brandIds))
+  await c.env.DB.batch(stmts)
 
   return c.json({ success: true })
 })

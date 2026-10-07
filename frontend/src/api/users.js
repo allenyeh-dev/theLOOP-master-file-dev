@@ -17,3 +17,7 @@ export function updateUser(id, payload) {
     body: JSON.stringify(payload),
   })
 }
+
+export function fetchBrands() {
+  return request('/api/admin/users/brands')
+}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { UsersPage } from './UsersPage'
+import { BrandsPage } from './BrandsPage'
 import { RolesPage } from './RolesPage'
 import { PermissionsPage } from './PermissionsPage'
 import './console.css'
@@ -8,6 +9,7 @@ import './console.css'
 const CONSOLE_ROLES = ['admin', 'ownership']
 const TABS = [
   { id: 'users', label: 'Users', Page: UsersPage },
+  { id: 'brands', label: 'Brands', Page: BrandsPage },
   { id: 'roles', label: 'Roles', Page: RolesPage },
   { id: 'permissions', label: 'Permissions', Page: PermissionsPage },
 ]

@@ -1,14 +1,31 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { fetchAdminUsers, createUser, updateUser } from '../api/users'
+import { fetchAdminUsers, fetchBrands, createUser, updateUser } from '../api/users'
 import { ArrowLeftIcon } from './icons'
 import './AdminPanel.css'
 
-const emptyForm = { name: '', email: '', password: '', title: '', role_id: '' }
+const emptyForm = { name: '', email: '', password: '', title: '', role_id: '', brand_ids: [] }
+
+const toggleId = (ids, id) => (ids.includes(id) ? ids.filter((n) => n !== id) : [...ids, id])
+
+function BrandPicker({ brands, value, onChange }) {
+  return (
+    <fieldset className="admin-brand-picker">
+      <legend>Brands</legend>
+      {brands.map((b) => (
+        <label key={b.id} className="admin-user-active-toggle">
+          <input type="checkbox" checked={value.includes(b.id)} onChange={() => onChange(toggleId(value, b.id))} />
+          {b.label}
+        </label>
+      ))}
+    </fieldset>
+  )
+}
 
 export function AdminPanel({ roles, onClose }) {
   const { user: currentUser } = useAuth()
   const [users, setUsers] = useState([])
+  const [brands, setBrands] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
 
@@ -32,11 +49,18 @@ export function AdminPanel({ roles, onClose }) {
 
   useEffect(() => {
     loadUsers()
+    fetchBrands()
+      .then((data) => setBrands(data.brands))
+      .catch((err) => setLoadError(err.message))
   }, [])
 
   async function handleCreate(e) {
     e.preventDefault()
     setCreateError(null)
+    if (form.brand_ids.length === 0) {
+      setCreateError('Select at least one brand')
+      return
+    }
     setCreating(true)
     try {
       await createUser({
@@ -45,6 +69,7 @@ export function AdminPanel({ roles, onClose }) {
         password: form.password,
         title: form.title || null,
         role_id: Number(form.role_id),
+        brand_ids: form.brand_ids,
       })
       setForm(emptyForm)
       setShowCreate(false)
@@ -59,17 +84,22 @@ export function AdminPanel({ roles, onClose }) {
   function startEdit(u) {
     setEditingId(u.id)
     setEditError(null)
-    setEditForm({ title: u.title || '', role_id: String(u.role_id || ''), is_active: !!u.is_active })
+    setEditForm({ title: u.title || '', role_id: String(u.role_id || ''), is_active: !!u.is_active, brand_ids: u.brands.map((b) => b.id) })
   }
 
   async function handleSaveEdit(id) {
     setEditError(null)
+    if (editForm.brand_ids.length === 0) {
+      setEditError('Select at least one brand')
+      return
+    }
     setSavingEdit(true)
     try {
       await updateUser(id, {
         title: editForm.title || null,
         role_id: Number(editForm.role_id),
         is_active: editForm.is_active,
+        brand_ids: editForm.brand_ids,
       })
       setEditingId(null)
       loadUsers()
@@ -140,6 +170,7 @@ export function AdminPanel({ roles, onClose }) {
                 ))}
               </select>
             </label>
+            <BrandPicker brands={brands} value={form.brand_ids} onChange={(brand_ids) => setForm({ ...form, brand_ids })} />
             <label>
               Temporary Password
               <input
@@ -197,6 +228,7 @@ export function AdminPanel({ roles, onClose }) {
                         Active
                       </label>
                     </div>
+                    <BrandPicker brands={brands} value={editForm.brand_ids} onChange={(brand_ids) => setEditForm({ ...editForm, brand_ids })} />
                     {editError && <p className="error-text">{editError}</p>}
                     <div className="admin-user-edit-actions">
                       <button type="button" onClick={() => setEditingId(null)} disabled={savingEdit}>
@@ -216,6 +248,9 @@ export function AdminPanel({ roles, onClose }) {
                       </p>
                       <div className="admin-user-tags">
                         <span className="tag tag-gold">{u.role_label ?? 'NO ROLE'}</span>
+                        {u.brands.map((b) => (
+                          <span key={b.id} className="tag tag-orange">{b.label}</span>
+                        ))}
                         {!u.is_active && (
                           <span className="tag tag-red">INACTIVE</span>
                         )}

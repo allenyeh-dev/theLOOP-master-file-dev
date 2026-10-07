@@ -1,6 +1,6 @@
 import type { Context, Next } from 'hono'
 import { getCookie } from 'hono/cookie'
-import { findSessionUser, getPermissionsForRole, toAuthUser, type AuthUser } from '../lib/auth-db'
+import { findSessionUser, getBrandsForUser, getPermissionsForRole, toAuthUser, type AuthUser } from '../lib/auth-db'
 
 type Bindings = { DB: D1Database }
 type Variables = { user: AuthUser }
@@ -24,7 +24,8 @@ export async function requireAuth(c: AppContext, next: Next) {
   }
 
   const permissions = row.role_id ? await getPermissionsForRole(c.env.DB, row.role_id) : []
-  c.set('user', toAuthUser(row, permissions))
+  const brands = await getBrandsForUser(c.env.DB, row.id)
+  c.set('user', toAuthUser(row, permissions, brands))
 
   await next()
 }

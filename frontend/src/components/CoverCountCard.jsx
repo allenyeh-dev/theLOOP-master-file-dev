@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { COVER_ANALYTICS, COVER_HOURLY } from '../data/executiveOverview'
+import { useAuth } from '../context/AuthContext'
+import { COVER_ANALYTICS, COVER_HOURLY, filterByBrands, sumTotals } from '../data/executiveOverview'
 import './CoverCountCard.css'
 
 function Sparkline({ values, color }) {
@@ -30,9 +31,13 @@ export function CoverCountCard() {
   const [expandedBrand, setExpandedBrand] = useState(null)
   const [dwmOpen, setDwmOpen] = useState(false)
   const [period, setPeriod] = useState('day')
+  const { user } = useAuth()
 
   const asOf = COVER_HOURLY.hours[COVER_HOURLY.hours.length - 1]
-  const analytics = COVER_ANALYTICS[period]
+  const hourlyOutlets = filterByBrands(COVER_HOURLY.outlets, user.brands)
+  const periodData = COVER_ANALYTICS[period]
+  const periodOutlets = filterByBrands(periodData.outlets, user.brands)
+  const analytics = { label: periodData.label, outlets: periodOutlets, total: sumTotals(periodOutlets) }
 
   return (
     <div className="cover-count-card">
@@ -45,7 +50,7 @@ export function CoverCountCard() {
       </div>
       <div className="can-period-label">Running total tonight · vs. same time last night</div>
 
-      {COVER_HOURLY.outlets.map((o, idx) => {
+      {hourlyOutlets.map((o, idx) => {
         const pct = o.priorNightSameHour ? ((o.runningTotal - o.priorNightSameHour) / o.priorNightSameHour) * 100 : 0
         const dir = pct >= 0 ? 'up' : 'down'
         const isOpen = expandedBrand === idx

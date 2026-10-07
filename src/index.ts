@@ -55,15 +55,22 @@ app.route('/api/happenings', happeningRoutes)
 app.route('/api/admin/users', adminUserRoutes)
 app.route('/api/console', consoleRoutes)
 
-// Any authenticated account, regardless of role, can see the staff directory.
+// Any authenticated account can see the staff directory, limited to people who share a brand with them.
 app.get('/api/staff', requireAuth, async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT u.id, u.name, u.title, r.key as role, r.label as role_label
      FROM users u
      LEFT JOIN roles r ON r.id = u.role_id
      WHERE u.role_id IS NOT NULL
+       AND EXISTS (
+         SELECT 1 FROM user_brands mine
+         JOIN user_brands theirs ON theirs.brand_id = mine.brand_id
+         WHERE mine.user_id = ? AND theirs.user_id = u.id
+       )
      ORDER BY u.name`
-  ).all()
+  )
+    .bind(c.get('user').id)
+    .all()
   return c.json({ success: true, staff: results })
 })
 

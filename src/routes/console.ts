@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { requireAuth, requireAdmin } from '../middleware/auth'
 import { hashPassword } from '../lib/password'
 import type { AuthUser } from '../lib/auth-db'
+import { insertUserBrands, replaceUserBrands, validBrandIds, withBrands } from '../lib/brands'
 
 type Bindings = { DB: D1Database }
 type Variables = { user: AuthUser }
@@ -21,6 +22,7 @@ const SYSTEM_PERMISSION_KEYS = [
   'kitchen.manage',
 ]
 const ROLE_KEY_RE = /^[a-z][a-z0-9_]{1,31}$/
+const BRAND_KEY_RE = /^[a-z][a-z0-9_]{1,31}$/
 const PERMISSION_KEY_RE = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$/
 
 const fail = (c: any, error: string, status = 400) => c.json({ success: false, error }, status)
@@ -53,8 +55,8 @@ consoleRoutes.get('/users', async (c) => {
             r.id as role_id, r.key as role_key, r.label as role_label
      FROM users u LEFT JOIN roles r ON r.id = u.role_id
      ORDER BY u.id`
-  ).all()
-  return c.json({ success: true, users: results })
+  ).all<{ id: number }>()
+  return c.json({ success: true, users: await withBrands(c.env.DB, results) })
 })
 
 consoleRoutes.post('/users', async (c) => {
@@ -69,6 +71,8 @@ consoleRoutes.post('/users', async (c) => {
   if (password.length < 8) return fail(c, 'Password must be at least 8 characters')
   const role = await assignableRole(c.env.DB, body?.role_id)
   if (!role) return fail(c, 'A valid role is required')
+  const brandIds = await validBrandIds(c.env.DB, body?.brand_ids)
+  if (!brandIds) return fail(c, 'Select at least one valid brand')
 
   try {
     const result = await c.env.DB.prepare(
@@ -76,7 +80,9 @@ consoleRoutes.post('/users', async (c) => {
     )
       .bind(name, email, await hashPassword(password), title, role.id, body?.is_active === false ? 0 : 1)
       .run()
-    return c.json({ success: true, id: result.meta.last_row_id }, 201)
+    const userId = result.meta.last_row_id
+    await c.env.DB.batch(insertUserBrands(c.env.DB, userId, brandIds))
+    return c.json({ success: true, id: userId }, 201)
   } catch (err) {
     return fail(c, isUnique(err) ? 'An account with that email already exists' : 'Failed to create account', 409)
   }
@@ -136,9 +142,16 @@ consoleRoutes.patch('/users/:id', async (c) => {
     values.push(await hashPassword(body.password))
     resetSessions = id !== actor.id
   }
-  if (updates.length === 0) return fail(c, 'No changes provided')
+  let brandIds: number[] | null = null
+  if (body.brand_ids !== undefined) {
+    brandIds = await validBrandIds(c.env.DB, body.brand_ids)
+    if (!brandIds) return fail(c, 'Select at least one valid brand')
+  }
+  if (updates.length === 0 && !brandIds) return fail(c, 'No changes provided')
 
-  const stmts = [c.env.DB.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).bind(...values, id)]
+  const stmts: D1PreparedStatement[] = []
+  if (updates.length) stmts.push(c.env.DB.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).bind(...values, id))
+  if (brandIds) stmts.push(...replaceUserBrands(c.env.DB, id, brandIds))
   if (resetSessions) stmts.push(c.env.DB.prepare(`DELETE FROM sessions WHERE user_id = ?`).bind(id))
   try {
     await c.env.DB.batch(stmts)
@@ -166,6 +179,88 @@ consoleRoutes.delete('/users/:id', async (c) => {
     c.env.DB.prepare(`DELETE FROM sessions WHERE user_id = ?`).bind(id),
     c.env.DB.prepare(`DELETE FROM users WHERE id = ?`).bind(id),
   ])
+  return c.json({ success: true })
+})
+
+/* ------------------------------- Brands ------------------------------ */
+
+consoleRoutes.get('/brands', async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT b.id, b.key, b.label,
+            (SELECT COUNT(*) FROM user_brands ub WHERE ub.brand_id = b.id) as user_count
+     FROM brands b ORDER BY b.sort_order, b.id`
+  ).all()
+  return c.json({ success: true, brands: results })
+})
+
+consoleRoutes.post('/brands', async (c) => {
+  const body = await c.req.json().catch(() => null)
+  const key = str(body?.key).toLowerCase()
+  const label = str(body?.label)
+  if (!BRAND_KEY_RE.test(key)) return fail(c, 'Key must be 2-32 chars: lowercase letters, digits, underscore, starting with a letter')
+  if (!label) return fail(c, 'Label is required')
+
+  try {
+    const result = await c.env.DB.prepare(
+      `INSERT INTO brands (key, label, sort_order) VALUES (?, ?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM brands))`
+    )
+      .bind(key, label)
+      .run()
+    return c.json({ success: true, id: result.meta.last_row_id }, 201)
+  } catch (err) {
+    return fail(c, isUnique(err) ? 'A brand with that key already exists' : 'Failed to create brand', 409)
+  }
+})
+
+consoleRoutes.patch('/brands/:id', async (c) => {
+  const id = parseId(c.req.param('id'))
+  if (!id) return fail(c, 'Invalid brand id')
+  const body = await c.req.json().catch(() => null)
+  if (!body || typeof body !== 'object') return fail(c, 'Invalid request body')
+
+  const updates: string[] = []
+  const values: unknown[] = []
+  if (body.label !== undefined) {
+    if (!str(body.label)) return fail(c, 'Label cannot be empty')
+    updates.push('label = ?')
+    values.push(str(body.label))
+  }
+  if (body.key !== undefined) {
+    const key = str(body.key).toLowerCase()
+    if (!BRAND_KEY_RE.test(key)) return fail(c, 'Invalid brand key')
+    updates.push('key = ?')
+    values.push(key)
+  }
+  if (updates.length === 0) return fail(c, 'No changes provided')
+
+  try {
+    const result = await c.env.DB.prepare(`UPDATE brands SET ${updates.join(', ')} WHERE id = ?`).bind(...values, id).run()
+    if (result.meta.changes === 0) return fail(c, 'Brand not found', 404)
+  } catch (err) {
+    return fail(c, isUnique(err) ? 'A brand with that key already exists' : 'Failed to update brand', 409)
+  }
+  return c.json({ success: true })
+})
+
+consoleRoutes.delete('/brands/:id', async (c) => {
+  const id = parseId(c.req.param('id'))
+  if (!id) return fail(c, 'Invalid brand id')
+  const brand = await c.env.DB.prepare(`SELECT id FROM brands WHERE id = ?`).bind(id).first()
+  if (!brand) return fail(c, 'Brand not found', 404)
+
+  // Refuse if it would leave any user with no brand (they would see nothing).
+  const orphaned = await c.env.DB.prepare(
+    `SELECT COUNT(*) as n FROM user_brands ub
+     WHERE ub.brand_id = ?
+       AND (SELECT COUNT(*) FROM user_brands o WHERE o.user_id = ub.user_id) = 1`
+  )
+    .bind(id)
+    .first<{ n: number }>()
+  if (orphaned && orphaned.n > 0) {
+    return fail(c, `${orphaned.n} user(s) belong only to this brand; assign them another brand first`, 409)
+  }
+
+  await c.env.DB.prepare(`DELETE FROM brands WHERE id = ?`).bind(id).run()
   return c.json({ success: true })
 })
 

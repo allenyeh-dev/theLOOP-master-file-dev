@@ -8,6 +8,11 @@ export const consoleApi = {
   updateUser: (id, p) => request(`/api/console/users/${id}`, json('PATCH', p)),
   deleteUser: (id) => request(`/api/console/users/${id}`, { method: 'DELETE' }),
 
+  listBrands: () => request('/api/console/brands'),
+  createBrand: (p) => request('/api/console/brands', json('POST', p)),
+  updateBrand: (id, p) => request(`/api/console/brands/${id}`, json('PATCH', p)),
+  deleteBrand: (id) => request(`/api/console/brands/${id}`, { method: 'DELETE' }),
+
   listRoles: () => request('/api/console/roles'),
   createRole: (p) => request('/api/console/roles', json('POST', p)),
   updateRole: (id, p) => request(`/api/console/roles/${id}`, json('PATCH', p)),

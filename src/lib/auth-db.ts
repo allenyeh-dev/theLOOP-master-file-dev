@@ -4,6 +4,12 @@ export interface Role {
   label: string
 }
 
+export interface Brand {
+  id: number
+  key: string
+  label: string
+}
+
 export interface AuthUser {
   id: number
   name: string
@@ -11,6 +17,7 @@ export interface AuthUser {
   title: string | null
   role: Role
   permissions: string[]
+  brands: Brand[]
 }
 
 export interface UserRow {
@@ -52,7 +59,20 @@ export async function getPermissionsForRole(db: D1Database, roleId: number): Pro
   return results.map((r) => r.key)
 }
 
-export function toAuthUser(row: UserRow, permissions: string[]): AuthUser {
+export async function getBrandsForUser(db: D1Database, userId: number): Promise<Brand[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT b.id, b.key, b.label FROM user_brands ub
+       JOIN brands b ON b.id = ub.brand_id
+       WHERE ub.user_id = ?
+       ORDER BY b.sort_order, b.id`
+    )
+    .bind(userId)
+    .all<Brand>()
+  return results
+}
+
+export function toAuthUser(row: UserRow, permissions: string[], brands: Brand[]): AuthUser {
   return {
     id: row.id,
     name: row.name,
@@ -60,6 +80,7 @@ export function toAuthUser(row: UserRow, permissions: string[]): AuthUser {
     title: row.title,
     role: { id: row.role_id ?? 0, key: row.role_key ?? '', label: row.role_label ?? '' },
     permissions,
+    brands,
   }
 }
 
