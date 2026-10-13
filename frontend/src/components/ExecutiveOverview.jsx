@@ -1,3 +1,4 @@
+import { useLang } from '../i18n/LanguageContext'
 import { useRef, useState } from 'react'
 import { EXEC_HERO, EXEC_STATS, OUTLETS, filterByBrands } from '../data/executiveOverview'
 import { greetingForNow, dashDateLong } from '../utils/overviewDate'
@@ -5,12 +6,12 @@ import { BrandHealthStrip } from './BrandHealthStrip'
 import { StatsRow } from './StatsRow'
 import { CoverCountCard } from './CoverCountCard'
 import { DateStepper } from './DateStepper'
-import { OverviewFooter } from './OverviewFooter'
 import { Toast } from './Toast'
 import { ClipboardIcon } from './icons'
 import './ExecutiveOverview.css'
 
 export function ExecutiveOverview({ user }) {
+  const { lang, t } = useLang()
   const [dateOffset, setDateOffset] = useState(0)
   const [toastMsg, setToastMsg] = useState(null)
   const toastTimer = useRef(null)
@@ -23,7 +24,7 @@ export function ExecutiveOverview({ user }) {
   const firstName = user.name.split(' ')[0]
 
   function showComingSoon() {
-    setToastMsg('Coming soon')
+    setToastMsg(t('Coming soon'))
     window.clearTimeout(toastTimer.current)
     toastTimer.current = window.setTimeout(() => setToastMsg(null), 1500)
   }
@@ -31,15 +32,15 @@ export function ExecutiveOverview({ user }) {
   return (
     <div className="executive-overview">
       <div className="exec-hero">
-        <div className="exec-hero-sup">{EXEC_HERO.sup}</div>
+        <div className="exec-hero-sup">{t(EXEC_HERO.sup)}</div>
         <div className="exec-hero-name">
-          {greetingForNow()}, {firstName}
+          {t(greetingForNow())}, {firstName}
         </div>
         <div className="exec-hero-sub">
-          {dashDateLong(dateOffset)} · {activeOutlets} Outlets Active
+          {dashDateLong(dateOffset, lang)} · {t('{n} Outlets Active', { n: activeOutlets })}
         </div>
         <DateStepper
-          label={dashDateLong(dateOffset)}
+          label={dashDateLong(dateOffset, lang)}
           isToday={dateOffset === 0}
           canNext={dateOffset < 0}
           onPrev={() => setDateOffset((o) => o - 1)}
@@ -55,16 +56,15 @@ export function ExecutiveOverview({ user }) {
         <span className="playbook-cta-icon">
           <ClipboardIcon width="20" height="20" />
         </span>
-        <div className="playbook-cta-eyebrow">All Brands</div>
-        <div className="playbook-cta-title">OPS BOARD</div>
-        <div className="playbook-cta-sub">Live 86 list, specials, shift notes, and reservations across every outlet.</div>
-        <div className="playbook-cta-btn">Open Ops Board →</div>
+        <div className="playbook-cta-eyebrow">{t('All Brands')}</div>
+        <div className="playbook-cta-title">{t('OPS BOARD')}</div>
+        <div className="playbook-cta-sub">{t('Live 86 list, specials, shift notes, and reservations across every outlet.')}</div>
+        <div className="playbook-cta-btn">{t('Open Ops Board →')}</div>
       </button>
 
-      <div className="ov-section-label">Cover Count</div>
+      <div className="ov-section-label">{t('Cover Count')}</div>
       <CoverCountCard />
 
-      <OverviewFooter placeholder="Search all outlets, recaps, events…" onHome={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
 
       <Toast message={toastMsg} />
     </div>

@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { consoleApi } from '../api/console'
 import { ConfirmDialog, Field, Modal, PageHead, useLoader, useSubmit } from './ui'
 
-function UserModal({ user, roles, brands, onClose, onSaved }) {
+function UserModal({ user, roles, brands, departments, onClose, onSaved }) {
   const { user: me } = useAuth()
   const editing = Boolean(user)
   const [form, setForm] = useState({
@@ -12,6 +12,7 @@ function UserModal({ user, roles, brands, onClose, onSaved }) {
     title: user?.title ?? '',
     role_id: user?.role_id ? String(user.role_id) : '',
     brand_ids: new Set((user?.brands ?? []).map((b) => b.id)),
+    department_ids: new Set((user?.departments ?? []).map((d) => d.id)),
     password: '',
     is_active: user ? Boolean(user.is_active) : true,
   })
@@ -26,7 +27,7 @@ function UserModal({ user, roles, brands, onClose, onSaved }) {
   const isOwnership = user?.role_key === 'ownership'
 
   const { busy, error, submit } = useSubmit(async () => {
-    const payload = { name: form.name, email: form.email, title: form.title, is_active: form.is_active, brand_ids: [...form.brand_ids] }
+    const payload = { name: form.name, email: form.email, title: form.title, is_active: form.is_active, brand_ids: [...form.brand_ids], department_ids: [...form.department_ids] }
     if (!isOwnership) payload.role_id = Number(form.role_id)
     if (form.brand_ids.size === 0) throw new Error('Select at least one brand')
     if (form.password) payload.password = form.password
@@ -68,6 +69,23 @@ function UserModal({ user, roles, brands, onClose, onSaved }) {
           )}
         </Field>
         <div className="cs-field">
+          <span className="cs-field-label">SOP departments ({form.department_ids.size})</span>
+          <div className="cs-perm-grid">
+            {departments.map((d) => (
+              <label key={d.id} className="cs-perm">
+                <input type="checkbox" checked={form.department_ids.has(d.id)} onChange={() => {
+                  const next = new Set(form.department_ids)
+                  if (next.has(d.id)) next.delete(d.id)
+                  else next.add(d.id)
+                  setForm({ ...form, department_ids: next })
+                }} />
+                {d.label}
+              </label>
+            ))}
+          </div>
+          <span className="cs-field-hint">Roles with the sop.view_all permission see every SOP. Everyone else only sees SOPs of these departments plus general ones; with none selected, general SOPs only.</span>
+        </div>
+        <div className="cs-field">
           <span className="cs-field-label">Brands ({form.brand_ids.size}/{brands.length})</span>
           <div className="cs-perm-grid">
             {brands.map((b) => (
@@ -97,6 +115,7 @@ export function UsersPage() {
   const users = useLoader(consoleApi.listUsers, (r) => r.users)
   const roles = useLoader(consoleApi.listRoles, (r) => r.roles)
   const brands = useLoader(consoleApi.listBrands, (r) => r.brands)
+  const departments = useLoader(consoleApi.listSopDepartments, (r) => r.departments)
   const [query, setQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [brandFilter, setBrandFilter] = useState('')
@@ -186,7 +205,7 @@ export function UsersPage() {
       )}
 
       {modal?.kind === 'edit' && (
-        <UserModal user={modal.user} roles={roles.data} brands={brands.data} onClose={() => setModal(null)} onSaved={() => { setModal(null); users.reload(); roles.reload(); brands.reload() }} />
+        <UserModal user={modal.user} roles={roles.data} brands={brands.data} departments={departments.data ?? []} onClose={() => setModal(null)} onSaved={() => { setModal(null); users.reload(); roles.reload(); brands.reload() }} />
       )}
       {modal?.kind === 'delete' && (
         <ConfirmDialog

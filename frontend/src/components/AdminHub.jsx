@@ -1,3 +1,4 @@
+import { useLang } from '../i18n/LanguageContext'
 import { useRef, useState } from 'react'
 import { ADMIN_HERO, ADMIN_QUICK_ACTIONS, ADMIN_STATS, OUTLETS, filterByBrands } from '../data/executiveOverview'
 import { greetingForNow, dashDateShort } from '../utils/overviewDate'
@@ -5,7 +6,6 @@ import { BrandHealthStrip } from './BrandHealthStrip'
 import { StatsRow } from './StatsRow'
 import { CoverCountCard } from './CoverCountCard'
 import { DateStepper } from './DateStepper'
-import { OverviewFooter } from './OverviewFooter'
 import { Toast } from './Toast'
 import { WhatsHappening } from './WhatsHappening'
 import { AlertTriangleIcon, ClipboardIcon, LockIcon, UploadIcon } from './icons'
@@ -19,12 +19,13 @@ const ICONS = {
 }
 
 export function AdminHub({ user }) {
+  const { lang, t } = useLang()
   const [dateOffset, setDateOffset] = useState(0)
   const [toastMsg, setToastMsg] = useState(null)
   const toastTimer = useRef(null)
 
   const outlets = filterByBrands(OUTLETS, user.brands)
-  const brandScope = user.brands.map((b) => b.label).join(' · ') || 'No brands'
+  const brandScope = user.brands.map((b) => b.label).join(' · ') || t('No brands')
   const activeOutlets = outlets.filter((o) => o.covers !== null).length
   const stats = ADMIN_STATS.map((s) =>
     s.label === 'Covers Last Night' ? { ...s, val: outlets.reduce((n, o) => n + (o.covers ?? 0), 0) } : s
@@ -32,7 +33,7 @@ export function AdminHub({ user }) {
   const firstName = user.name.split(' ')[0]
 
   function showComingSoon() {
-    setToastMsg('Coming soon')
+    setToastMsg(t('Coming soon'))
     window.clearTimeout(toastTimer.current)
     toastTimer.current = window.setTimeout(() => setToastMsg(null), 1500)
   }
@@ -40,15 +41,15 @@ export function AdminHub({ user }) {
   return (
     <div className="admin-hub">
       <div className="exec-hero admin-hero">
-        <div className="exec-hero-sup">Admin Hub · {brandScope}</div>
+        <div className="exec-hero-sup">{t('Admin Hub · {scope}', { scope: brandScope })}</div>
         <div className="exec-hero-name">
-          {greetingForNow()}, {firstName}
+          {t(greetingForNow())}, {firstName}
         </div>
         <div className="exec-hero-sub">
-          {dashDateShort(dateOffset)} · {activeOutlets} Outlets Active · Last updated {ADMIN_HERO.lastUpdated}
+          {dashDateShort(dateOffset, lang)} · {t('{n} Outlets Active', { n: activeOutlets })} · {t('Last updated {time}', { time: ADMIN_HERO.lastUpdated })}
         </div>
         <DateStepper
-          label={dashDateShort(dateOffset)}
+          label={dashDateShort(dateOffset, lang)}
           isToday={dateOffset === 0}
           canNext={dateOffset < 0}
           onPrev={() => setDateOffset((o) => o - 1)}
@@ -58,7 +59,7 @@ export function AdminHub({ user }) {
           {ADMIN_HERO.statusPills.map((p) => (
             <div className={`admin-status-pill ${p.tone === 'ok' ? 'pill-ok' : p.tone === 'alert' ? 'pill-alert' : ''}`} key={p.label}>
               <span className="sp-dot" style={{ background: p.dot }} />
-              {p.label}
+              {t(p.label)}
             </div>
           ))}
         </div>
@@ -81,8 +82,8 @@ export function AdminHub({ user }) {
               <span className="aqg-icon">
                 <Icon />
               </span>
-              <span className="aqg-label">{a.label}</span>
-              <span className="aqg-sub">{a.sub}</span>
+              <span className="aqg-label">{t(a.label)}</span>
+              <span className="aqg-sub">{t(a.sub)}</span>
             </button>
           )
         })}
@@ -90,10 +91,9 @@ export function AdminHub({ user }) {
 
       <WhatsHappening />
 
-      <div className="ov-section-label">Cover Count</div>
+      <div className="ov-section-label">{t('Cover Count')}</div>
       <CoverCountCard />
 
-      <OverviewFooter placeholder="Search all outlets, incidents, staff…" onHome={() => window.scrollTo({ top: 0, behavior: 'smooth' })} />
 
       <Toast message={toastMsg} />
     </div>

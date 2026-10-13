@@ -13,6 +13,11 @@ export const consoleApi = {
   updateBrand: (id, p) => request(`/api/console/brands/${id}`, json('PATCH', p)),
   deleteBrand: (id) => request(`/api/console/brands/${id}`, { method: 'DELETE' }),
 
+  listSopDepartments: () => request('/api/console/sop-departments'),
+  createSopDepartment: (p) => request('/api/console/sop-departments', json('POST', p)),
+  updateSopDepartment: (id, p) => request(`/api/console/sop-departments/${id}`, json('PATCH', p)),
+  deleteSopDepartment: (id) => request(`/api/console/sop-departments/${id}`, { method: 'DELETE' }),
+
   listRoles: () => request('/api/console/roles'),
   createRole: (p) => request('/api/console/roles', json('POST', p)),
   updateRole: (id, p) => request(`/api/console/roles/${id}`, json('PATCH', p)),

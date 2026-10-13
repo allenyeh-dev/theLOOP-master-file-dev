@@ -4,7 +4,7 @@ import { ConfirmDialog, Field, Modal, PageHead, useLoader, useSubmit } from './u
 
 function BrandModal({ brand, onClose, onSaved }) {
   const editing = Boolean(brand)
-  const [form, setForm] = useState({ key: brand?.key ?? '', label: brand?.label ?? '' })
+  const [form, setForm] = useState({ key: brand?.key ?? '', label: brand?.label ?? '', code: brand?.code ?? '' })
 
   const { busy, error, submit } = useSubmit(
     () => (editing ? consoleApi.updateBrand(brand.id, form) : consoleApi.createBrand(form)),
@@ -29,6 +29,9 @@ function BrandModal({ brand, onClose, onSaved }) {
         <Field label="Key" hint="Lowercase, digits, underscore. Used to match brand data.">
           <input value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} required />
         </Field>
+        <Field label="SOP code" hint="2-5 letters/digits, used in SOP numbers (e.g. SF-BOH-002). Blank = first 3 letters of the key.">
+          <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} maxLength={5} />
+        </Field>
         {error && <p className="cs-error">{error}</p>}
       </form>
     </Modal>
@@ -52,13 +55,14 @@ export function BrandsPage() {
       {brands.data && (
         <table className="cs-table">
           <thead>
-            <tr><th>Brand</th><th>Key</th><th>Users</th><th className="cs-col-actions">Actions</th></tr>
+            <tr><th>Brand</th><th>Key</th><th>SOP code</th><th>Users</th><th className="cs-col-actions">Actions</th></tr>
           </thead>
           <tbody>
             {brands.data.map((b) => (
               <tr key={b.id}>
                 <td className="cs-strong">{b.label}</td>
                 <td><code>{b.key}</code></td>
+                <td>{b.code ?? '—'}</td>
                 <td>{b.user_count}</td>
                 <td className="cs-col-actions">
                   <button className="cs-link" onClick={() => setModal({ kind: 'edit', brand: b })}>Edit</button>

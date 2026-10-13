@@ -9,6 +9,7 @@ import {
   GroupIcon,
   MusicNoteIcon,
 } from './icons'
+import { useLang } from '../i18n/LanguageContext'
 import './WhatsHappening.css'
 
 const ICONS = {
@@ -20,6 +21,7 @@ const ICONS = {
 const SWIPE_THRESHOLD = 40
 
 function HappeningCard({ happening, onClick, className = '', tabIndex }) {
+  const { pick } = useLang()
   const Icon = ICONS[happening.icon] || CalendarIcon
   return (
     <article
@@ -36,17 +38,18 @@ function HappeningCard({ happening, onClick, className = '', tabIndex }) {
           <ExternalLinkIcon />
         </span>
       </div>
-      <p className="happening-tag">{happening.tag_label}</p>
-      <h3>{happening.title}</h3>
+      <p className="happening-tag">{pick(happening, 'tag_label')}</p>
+      <h3>{pick(happening, 'title')}</h3>
       <p className="happening-meta">
-        {happening.brand} · {happening.event_date}
+        {happening.brand} · {pick(happening, 'event_date')}
       </p>
-      <p className="happening-detail">{happening.detail}</p>
+      <p className="happening-detail">{pick(happening, 'detail')}</p>
     </article>
   )
 }
 
 export function WhatsHappening() {
+  const { t } = useLang()
   const [happenings, setHappenings] = useState([])
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -106,13 +109,13 @@ export function WhatsHappening() {
 
   return (
     <section className="happenings">
-      <p className="section-label">WHAT'S HAPPENING</p>
+      <p className="section-label">{t("WHAT'S HAPPENING")}</p>
 
-      {loading && <p className="muted">Loading…</p>}
-      {error && <p className="error-text">Error: {error}</p>}
+      {loading && <p className="muted">{t('Loading…')}</p>}
+      {error && <p className="error-text">{t('Error: {msg}', { msg: t(error) })}</p>}
 
       {!loading && !error && happenings.length === 0 && (
-        <p className="muted">No brand activity right now.</p>
+        <p className="muted">{t('No brand activity right now.')}</p>
       )}
 
       {happenings.length > 0 && (
@@ -146,7 +149,7 @@ export function WhatsHappening() {
               type="button"
               className="happening-modal-close"
               onClick={() => setExpandedIndex(null)}
-              aria-label="Close"
+              aria-label={t('Close')}
             >
               <CloseIcon />
             </button>
@@ -156,7 +159,7 @@ export function WhatsHappening() {
                 type="button"
                 className="happening-modal-nav happening-modal-nav--prev"
                 onClick={() => setExpandedIndex((i) => i - 1)}
-                aria-label="Previous"
+                aria-label={t('Previous')}
               >
                 <ChevronLeftIcon />
               </button>
@@ -167,7 +170,7 @@ export function WhatsHappening() {
                 type="button"
                 className="happening-modal-nav happening-modal-nav--next"
                 onClick={() => setExpandedIndex((i) => i + 1)}
-                aria-label="Next"
+                aria-label={t('Next')}
               >
                 <ChevronRightIcon />
               </button>

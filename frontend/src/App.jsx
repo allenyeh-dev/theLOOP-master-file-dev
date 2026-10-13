@@ -2,6 +2,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { LoginPage } from './components/LoginPage'
 import { Dashboard } from './components/Dashboard'
 import { AdminConsole, isConsolePath } from './console/AdminConsole'
+import { LanguageProvider } from './i18n/LanguageContext'
 import './App.css'
 
 function AppShell() {
@@ -17,9 +18,11 @@ function AppShell() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppShell />
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <AppShell />
+      </AuthProvider>
+    </LanguageProvider>
   )
 }
 

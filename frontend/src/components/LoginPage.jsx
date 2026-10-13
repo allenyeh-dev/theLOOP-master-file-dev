@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { useLang } from '../i18n/LanguageContext'
 import './LoginPage.css'
 
 export function LoginPage() {
   const { login } = useAuth()
+  const { lang, setLang, t } = useLang()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
@@ -16,7 +18,7 @@ export function LoginPage() {
     try {
       await login(email, password)
     } catch (err) {
-      setError(err.message)
+      setError(t(err.message))
     } finally {
       setSubmitting(false)
     }
@@ -26,11 +28,15 @@ export function LoginPage() {
     <div className="login-screen">
       <div className="login-card">
         <div className="logo">THE LOOP</div>
-        <p className="login-subtitle">Sign in to your account</p>
+        <div className="language-toggle login-lang">
+          <button type="button" className={lang === 'en' ? 'is-active' : ''} onClick={() => setLang('en')}>EN</button>
+          <button type="button" className={lang === 'zh' ? 'is-active' : ''} onClick={() => setLang('zh')}>中文</button>
+        </div>
+        <p className="login-subtitle">{t('Sign in to your account')}</p>
 
         <form onSubmit={handleSubmit} className="login-form">
           <label>
-            Email
+            {t('Email')}
             <input
               type="email"
               value={email}
@@ -41,7 +47,7 @@ export function LoginPage() {
           </label>
 
           <label>
-            Password
+            {t('Password')}
             <input
               type="password"
               value={password}
@@ -54,7 +60,7 @@ export function LoginPage() {
           {error && <p className="login-error">{error}</p>}
 
           <button type="submit" disabled={submitting}>
-            {submitting ? 'Signing in…' : 'Sign In'}
+            {submitting ? t('Signing in…') : t('Sign In')}
           </button>
         </form>
       </div>

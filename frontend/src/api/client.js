@@ -1,10 +1,10 @@
-const JSON_HEADERS = { 'Content-Type': 'application/json' }
+import { getLang } from '../i18n/lang'
 
 export async function request(path, options = {}) {
   const res = await fetch(path, {
     credentials: 'include',
-    headers: JSON_HEADERS,
     ...options,
+    headers: { 'Content-Type': 'application/json', 'X-Lang': getLang(), ...options.headers },
   })
   const data = await res.json().catch(() => null)
   if (!res.ok || !data?.success) {

@@ -1,3 +1,4 @@
+import { useLang } from '../i18n/LanguageContext'
 import './OverviewShared.css'
 
 const RAG_TEXT = {
@@ -6,12 +7,13 @@ const RAG_TEXT = {
 }
 
 export function BrandHealthStrip({ outlets, mode }) {
+  const { t } = useLang()
   return (
     <div className="bh-strip">
       {outlets.map((o) => {
         const ragClass = o.status === 'healthy' ? 'rag-green' : o.status === 'watch' ? 'rag-amber' : ''
         const ragColorClass = o.status === 'healthy' ? 'green' : o.status === 'watch' ? 'amber' : ''
-        const ragLabel = RAG_TEXT[mode][o.status]
+        const ragLabel = t(RAG_TEXT[mode][o.status])
 
         const rag = (
           <div className={`bh-rag ${ragColorClass}`} style={o.status === 'na' ? { color: 'var(--text-muted)' } : undefined}>
@@ -21,18 +23,18 @@ export function BrandHealthStrip({ outlets, mode }) {
         const name = <div className="bh-outlet">{o.name}</div>
         const covers = (
           <div className="bh-covers" style={o.status === 'na' ? { fontSize: '14px', color: 'var(--text-muted)' } : undefined}>
-            {o.covers === null ? (mode === 'admin' ? '—' : 'N/A') : o.covers}
+            {o.covers === null ? (mode === 'admin' ? '—' : t('N/A')) : o.covers}
           </div>
         )
         const vs = (
           <div className="bh-vs">
             {o.status === 'na'
               ? mode === 'admin'
-                ? 'No data'
-                : 'facility only'
+                ? t('No data')
+                : t('facility only')
               : mode === 'admin'
-                ? `${o.prevPct >= 0 ? '▲' : '▼'} ${o.prevPct >= 0 ? '+' : ''}${o.prevPct}% vs prev`
-                : `vs ${o.target} target`}
+                ? `${o.prevPct >= 0 ? '▲' : '▼'} ${o.prevPct >= 0 ? '+' : ''}${o.prevPct}% ${t('vs prev')}`
+                : t('vs {n} target', { n: o.target })}
           </div>
         )
 

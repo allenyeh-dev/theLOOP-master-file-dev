@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 import { fetchAnnouncements } from '../api/data'
+import { useLang } from '../i18n/LanguageContext'
 import './Announcements.css'
 
-function formatDate(isoDate) {
+function formatDate(isoDate, lang) {
   const d = new Date(`${isoDate}T00:00:00`)
-  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+  return d.toLocaleDateString(lang === 'zh' ? 'zh-TW' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
 export function Announcements() {
+  const { lang, t, pick } = useLang()
   const [announcements, setAnnouncements] = useState([])
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -21,10 +23,10 @@ export function Announcements() {
 
   return (
     <section className="announcements">
-      <p className="section-label">ANNOUNCEMENTS</p>
+      <p className="section-label">{t('ANNOUNCEMENTS')}</p>
 
-      {loading && <p className="muted">Loading…</p>}
-      {error && <p className="error-text">Error: {error}</p>}
+      {loading && <p className="muted">{t('Loading…')}</p>}
+      {error && <p className="error-text">{t('Error: {msg}', { msg: t(error) })}</p>}
 
       <div className="announcement-list">
         {announcements.map((a) => (
@@ -32,14 +34,14 @@ export function Announcements() {
             <div className="announcement-tags">
               {a.tags.map((tag) => (
                 <span key={tag.label} className={`tag tag-${tag.variant}`}>
-                  {tag.label}
+                  {pick(tag, 'label')}
                 </span>
               ))}
             </div>
-            <h3>{a.title}</h3>
-            <p className="announcement-body">{a.body}</p>
+            <h3>{pick(a, 'title')}</h3>
+            <p className="announcement-body">{pick(a, 'body')}</p>
             <p className="announcement-footer">
-              {a.posted_by} · {formatDate(a.posted_at)}
+              {a.posted_by} · {formatDate(a.posted_at, lang)}
             </p>
           </article>
         ))}

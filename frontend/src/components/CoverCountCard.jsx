@@ -1,3 +1,4 @@
+import { useLang } from '../i18n/LanguageContext'
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { COVER_ANALYTICS, COVER_HOURLY, filterByBrands, sumTotals } from '../data/executiveOverview'
@@ -32,6 +33,7 @@ export function CoverCountCard() {
   const [dwmOpen, setDwmOpen] = useState(false)
   const [period, setPeriod] = useState('day')
   const { user } = useAuth()
+  const { t } = useLang()
 
   const asOf = COVER_HOURLY.hours[COVER_HOURLY.hours.length - 1]
   const hourlyOutlets = filterByBrands(COVER_HOURLY.outlets, user.brands)
@@ -44,11 +46,11 @@ export function CoverCountCard() {
       <div className="can-hourly-live-tag-row">
         <span className="can-hourly-live-tag">
           <span className="can-hourly-live-dot" />
-          Simulated live — POS feed pending
+          {t('Simulated live — POS feed pending')}
         </span>
         <span className="can-hourly-as-of">{asOf}</span>
       </div>
-      <div className="can-period-label">Running total tonight · vs. same time last night</div>
+      <div className="can-period-label">{t('Running total tonight · vs. same time last night')}</div>
 
       {hourlyOutlets.map((o, idx) => {
         const pct = o.priorNightSameHour ? ((o.runningTotal - o.priorNightSameHour) / o.priorNightSameHour) * 100 : 0
@@ -80,10 +82,10 @@ export function CoverCountCard() {
         )
       })}
 
-      <div className="can-hourly-note">Mock data for UI preview. Tap a brand to see its last 5 hours.</div>
+      <div className="can-hourly-note">{t('Mock data for UI preview. Tap a brand to see its last 5 hours.')}</div>
 
       <div className={`can-hourly-toggle ${dwmOpen ? 'open' : ''}`} onClick={() => setDwmOpen((o) => !o)}>
-        <span>{dwmOpen ? 'Hide Day/Week/Month' : 'View Day/Week/Month'}</span>
+        <span>{dwmOpen ? t('Hide Day/Week/Month') : t('View Day/Week/Month')}</span>
         <span className="chev">▾</span>
       </div>
 
@@ -96,26 +98,26 @@ export function CoverCountCard() {
                 className={`ptog-pill ${period === p.key ? 'active' : ''}`}
                 onClick={() => setPeriod(p.key)}
               >
-                {p.label}
+                {t(p.label)}
               </div>
             ))}
           </div>
-          <div className="can-period-label">{analytics.label}</div>
+          <div className="can-period-label">{t(analytics.label)}</div>
           {analytics.outlets.map((o) => (
             <div className="can-row" key={o.name}>
               <span className="can-dot" style={{ background: o.color }} />
               <span className="can-outlet">{o.name}</span>
               <span className="can-val">{o.current.toLocaleString()}</span>
-              <span className="can-prior">vs {o.prior.toLocaleString()}</span>
+              <span className="can-prior">{t('vs {n}', { n: o.prior.toLocaleString() })}</span>
               <span className={`can-delta ${o.dir}`}>
                 {o.dir === 'up' ? '▲' : '▼'} {o.delta}
               </span>
             </div>
           ))}
           <div className="can-total-row">
-            <span className="can-total-label">Total</span>
+            <span className="can-total-label">{t('Total')}</span>
             <span className="can-val">{analytics.total.current.toLocaleString()}</span>
-            <span className="can-prior">vs {analytics.total.prior.toLocaleString()}</span>
+            <span className="can-prior">{t('vs {n}', { n: analytics.total.prior.toLocaleString() })}</span>
             <span className={`can-delta ${analytics.total.dir}`}>
               {analytics.total.dir === 'up' ? '▲' : '▼'} {analytics.total.delta}
             </span>

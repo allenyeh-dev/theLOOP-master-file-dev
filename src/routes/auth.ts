@@ -7,6 +7,7 @@ import {
   findUserByEmail,
   getBrandsForUser,
   getPermissionsForRole,
+  getDepartmentsForUser,
   toAuthUser,
   type AuthUser,
 } from '../lib/auth-db'
@@ -47,7 +48,8 @@ authRoutes.post('/login', async (c) => {
 
   const permissions = row.role_id ? await getPermissionsForRole(c.env.DB, row.role_id) : []
   const brands = await getBrandsForUser(c.env.DB, row.id)
-  return c.json({ success: true, user: toAuthUser(row, permissions, brands) })
+  const departments = await getDepartmentsForUser(c.env.DB, row.id)
+  return c.json({ success: true, user: toAuthUser(row, permissions, brands, departments) })
 })
 
 authRoutes.post('/logout', async (c) => {

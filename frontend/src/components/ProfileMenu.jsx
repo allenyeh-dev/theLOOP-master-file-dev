@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useLang } from '../i18n/LanguageContext'
 import { ChartIcon, GearIcon, SignOutIcon } from './icons'
 import './ProfileMenu.css'
 
 export function ProfileMenu({ user, onSignOut, onClose, canManageUsers, onOpenAdminPanel }) {
-  const [language, setLanguage] = useState('en')
+  const { lang: language, setLang: setLanguage, t } = useLang()
 
   return (
     <>
@@ -36,7 +36,7 @@ export function ProfileMenu({ user, onSignOut, onClose, canManageUsers, onOpenAd
 
         <button type="button" className="profile-menu-row profile-menu-row--link" disabled>
           <ChartIcon />
-          Access Logs
+          {t('Access Logs')}
         </button>
 
         <button
@@ -49,13 +49,13 @@ export function ProfileMenu({ user, onSignOut, onClose, canManageUsers, onOpenAd
           }}
         >
           <GearIcon />
-          Admin Panel
+          {t('Admin Panel')}
         </button>
 
         {['admin', 'ownership'].includes(user.role.key) && (
           <a href="/admin" className="profile-menu-row profile-menu-row--link">
             <GearIcon />
-            Admin Console
+            {t('Admin Console')}
           </a>
         )}
 
@@ -68,7 +68,7 @@ export function ProfileMenu({ user, onSignOut, onClose, canManageUsers, onOpenAd
           }}
         >
           <SignOutIcon />
-          Sign Out
+          {t('Sign Out')}
         </button>
       </div>
     </>

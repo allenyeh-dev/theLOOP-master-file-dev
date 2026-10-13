@@ -1,0 +1,6 @@
+.sop-shortcut { margin-bottom: 1.5rem; }
+.sop-shortcut-btn { display: flex; align-items: center; gap: 0.8rem; width: 100%; font: inherit; color: var(--text); text-align: left; padding: 0.9rem 1rem; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; }
+.sop-shortcut-icon { display: flex; color: var(--accent); }
+.sop-shortcut-text { flex: 1; display: flex; flex-direction: column; }
+.sop-shortcut-text small { color: var(--text-muted); font-size: 0.8rem; }
+.sop-shortcut-go { color: var(--text-muted); font-size: 1.4rem; }

@@ -87,3 +87,5 @@
   opacity: 0.6;
   cursor: default;
 }
+
+.login-lang { margin: 0.8rem auto 0; width: fit-content; }

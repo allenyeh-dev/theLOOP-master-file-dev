@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { fetchRoles } from '../api/data'
+import { useLang } from '../i18n/LanguageContext'
 import { TopNav } from './TopNav'
 import { ProfileMenu } from './ProfileMenu'
 import { Announcements } from './Announcements'
@@ -8,6 +9,10 @@ import { WhatsHappening } from './WhatsHappening'
 import { AdminHub } from './AdminHub'
 import { ExecutiveOverview } from './ExecutiveOverview'
 import { AdminPanel } from './AdminPanel'
+import { SopApp } from '../sop/SopApp'
+import { SopEditApp } from '../sop/SopEditApp'
+import { OverviewFooter } from './OverviewFooter'
+import { SopShortcut } from './SopShortcut'
 import './Dashboard.css'
 
 const PERMISSION_LABELS = {
@@ -21,10 +26,15 @@ const PERMISSION_LABELS = {
 
 export function Dashboard() {
   const { user, logout, hasPermission } = useAuth()
+  const { t } = useLang()
   const [roles, setRoles] = useState([])
   const [viewAsRoleKey, setViewAsRoleKey] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [adminPanelOpen, setAdminPanelOpen] = useState(false)
+  const [nav, setNav] = useState({ stack: ['home'], pos: 0 })
+  const [sopQuery, setSopQuery] = useState('')
+  const [sopEditId, setSopEditId] = useState(null)
+  const view = nav.stack[nav.pos]
 
   const canSwitchView = hasPermission('users.manage')
 
@@ -34,6 +44,11 @@ export function Dashboard() {
       .then((data) => setRoles(data.roles))
       .catch(() => setRoles([]))
   }, [canSwitchView])
+
+  function navigate(next) {
+    setNav((n) => (n.stack[n.pos] === next ? n : { stack: [...n.stack.slice(0, n.pos + 1), next], pos: n.pos + 1 }))
+  }
+  const go = (delta) => setNav((n) => ({ ...n, pos: Math.min(n.stack.length - 1, Math.max(0, n.pos + delta)) }))
 
   if (!user) return null
 
@@ -55,6 +70,10 @@ export function Dashboard() {
         onResetView={() => setViewAsRoleKey(null)}
         badgeLabel={badgeSource ? badgeSource[0].toUpperCase() : null}
         onToggleMenu={() => setMenuOpen((open) => !open)}
+        view={view}
+        showSop={hasPermission('sop.submit') || hasPermission('sop.approve')}
+        showSopEdit={hasPermission('sop.submit')}
+        onNavigate={(v) => { if (v === 'sop-edit') setSopEditId(null); navigate(v) }}
       />
 
       {menuOpen && (
@@ -70,9 +89,20 @@ export function Dashboard() {
       {adminPanelOpen && <AdminPanel roles={roles} onClose={() => setAdminPanelOpen(false)} />}
 
       <main className="content">
+        {view === 'sop' ? (
+          <SopApp
+            onExit={() => navigate('home')}
+            onEditSop={(id) => { setSopEditId(id); navigate('sop-edit') }}
+            query={sopQuery}
+            onClearQuery={() => setSopQuery('')}
+          />
+        ) : view === 'sop-edit' ? (
+          <SopEditApp key={sopEditId ?? 'new'} onExit={() => navigate('home')} initialSopId={sopEditId} />
+        ) : (
+          <>
         {previewedRole && (
           <p className="preview-banner">
-            Previewing as <strong>{previewedRole.label}</strong>
+            {t('Previewing as')} <strong>{previewedRole.label}</strong>
           </p>
         )}
 
@@ -83,30 +113,52 @@ export function Dashboard() {
         ) : (
           <>
             <section className="welcome-panel">
-              <p className="welcome-label">WELCOME BACK</p>
+              <p className="welcome-label">{t('WELCOME BACK')}</p>
               <h1 className="welcome-name">{user.name}</h1>
               <p className="welcome-title">{user.title || user.role.label}</p>
             </section>
 
             <Announcements />
 
+            {(hasPermission('sop.submit') || hasPermission('sop.approve')) && <SopShortcut user={user} onOpen={() => navigate('sop')} />}
+
             <WhatsHappening />
 
             <section className="access-section">
-              <p className="section-label">{previewedRole ? `${previewedRole.label} ACCESS` : 'YOUR ACCESS'}</p>
+              <p className="section-label">{previewedRole ? t('{role} ACCESS', { role: previewedRole.label }) : t('YOUR ACCESS')}</p>
               <div className="permission-grid">
                 {Object.entries(PERMISSION_LABELS)
                   .filter(([key]) => effectivePermissions.includes(key))
                   .map(([key, label]) => (
                     <div className="card" key={key}>
-                      {label}
+                      {t(label)}
                     </div>
                   ))}
               </div>
             </section>
           </>
         )}
+          </>
+        )}
       </main>
+
+      <div className="dashboard-footer">
+        <OverviewFooter
+          placeholder="Search SOPs, recipes, menus…"
+          canBack={nav.pos > 0}
+          canForward={nav.pos < nav.stack.length - 1}
+          onBack={() => go(-1)}
+          onForward={() => go(1)}
+          onHome={() => {
+            navigate('home')
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
+          onSearch={(q) => {
+            setSopQuery(q)
+            navigate('sop')
+          }}
+        />
+      </div>
     </div>
   )
 }
