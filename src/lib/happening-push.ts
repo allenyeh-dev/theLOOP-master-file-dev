@@ -30,17 +30,17 @@ export async function pushHappening(
   ).bind(happeningId).first<Happening>()
   if (!h || (!h.brand_id && !h.all_brands)) return null
 
-  await env.DB.prepare(`INSERT INTO happening_pushes (happening_id, sent_by) VALUES (?, ?)`).bind(h.id, sentBy).run()
+  const pushId = (await env.DB.prepare(`INSERT INTO happening_pushes (happening_id, sent_by) VALUES (?, ?)`).bind(h.id, sentBy).run()).meta.last_row_id
 
   const summary: PushSummary = { requested: true, configured: pushConfigured(env), sent: 0, failed: 0 }
   if (!summary.configured) return summary
 
   const { results: subs } = await env.DB.prepare(
-    `SELECT DISTINCT s.endpoint, s.p256dh, s.auth, s.lang
+    `SELECT DISTINCT s.endpoint, s.user_id, s.p256dh, s.auth, s.lang
      FROM push_subscriptions s
      JOIN users u ON u.id = s.user_id AND u.is_active = 1
      WHERE ?1 = 1 OR s.user_id IN (SELECT user_id FROM user_brands WHERE brand_id = ?2)`
-  ).bind(h.all_brands, h.brand_id).all<{ endpoint: string; p256dh: string; auth: string; lang: string }>()
+  ).bind(h.all_brands, h.brand_id).all<{ endpoint: string; user_id: number; p256dh: string; auth: string; lang: string }>()
 
   const outcomes = await Promise.all(
     subs.map(async (sub) => {
@@ -54,9 +54,16 @@ export async function pushHappening(
         tag: `happening-${h.id}`,
         url: '/',
       })
-      return { endpoint: sub.endpoint, status }
+      return { endpoint: sub.endpoint, user_id: sub.user_id, status }
     })
   )
+
+  if (outcomes.length) {
+    await env.DB.batch(outcomes.map((o) =>
+      env.DB.prepare(`INSERT OR REPLACE INTO happening_push_deliveries (push_id, endpoint, user_id, status) VALUES (?, ?, ?, ?)`)
+        .bind(pushId, o.endpoint, o.user_id, o.status)
+    ))
+  }
 
   const gone = outcomes.filter((o) => o.status === 'gone')
   if (gone.length) {

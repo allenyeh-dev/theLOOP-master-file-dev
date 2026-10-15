@@ -21,6 +21,7 @@ export const consoleApi = {
   listHappenings: () => request('/api/console/happenings'),
   createHappening: (p) => request('/api/console/happenings', json('POST', p)),
   pushHappening: (id) => request(`/api/console/happenings/${id}/push`, { method: 'POST' }),
+  happeningAcks: (id) => request(`/api/console/happenings/${id}/acks`),
   deleteHappening: (id) => request(`/api/console/happenings/${id}`, { method: 'DELETE' }),
 
   listRoles: () => request('/api/console/roles'),

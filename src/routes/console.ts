@@ -632,6 +632,34 @@ consoleRoutes.post('/happenings', async (c) => {
   return c.json({ success: true, id, push }, 201)
 })
 
+// Who was asked to acknowledge the latest push, whether each got a notification, and when they acknowledged.
+consoleRoutes.get('/happenings/:id/acks', async (c) => {
+  const id = parseId(c.req.param('id'))
+  if (!id) return fail(c, 'Invalid id')
+  const push = await c.env.DB.prepare(
+    `SELECT p.id, p.created_at, h.title, h.brand, h.all_brands, h.brand_id
+     FROM happening_pushes p JOIN brand_happenings h ON h.id = p.happening_id
+     WHERE p.happening_id = ? ORDER BY p.id DESC LIMIT 1`
+  ).bind(id).first<{ id: number; created_at: string; title: string; brand: string; all_brands: number; brand_id: number | null }>()
+  if (!push) return fail(c, 'This event has not been pushed yet', 404)
+
+  const { results } = await c.env.DB.prepare(
+    `SELECT u.id, u.name, u.title, r.label AS role_label,
+            a.acked_at,
+            (SELECT MIN(d.sent_at) FROM happening_push_deliveries d
+               WHERE d.push_id = ?1 AND d.user_id = u.id AND d.status = 'sent') AS notified_at,
+            (SELECT COUNT(*) FROM happening_push_deliveries d WHERE d.push_id = ?1 AND d.user_id = u.id) AS devices
+     FROM users u
+     LEFT JOIN roles r ON r.id = u.role_id
+     LEFT JOIN happening_push_acks a ON a.push_id = ?1 AND a.user_id = u.id
+     WHERE u.is_active = 1
+       AND (?2 = 1 OR u.id IN (SELECT user_id FROM user_brands WHERE brand_id = ?3))
+     ORDER BY (a.acked_at IS NULL), a.acked_at, u.name`
+  ).bind(push.id, push.all_brands, push.brand_id).all()
+
+  return c.json({ success: true, push: { id: push.id, created_at: push.created_at, title: push.title, brand: push.brand }, people: results })
+})
+
 // Push an existing event again; everyone in the brand is asked to acknowledge it anew.
 consoleRoutes.post('/happenings/:id/push', async (c) => {
   const id = parseId(c.req.param('id'))

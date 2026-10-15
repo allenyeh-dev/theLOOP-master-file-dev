@@ -91,6 +91,50 @@ function EventModal({ brands, pushConfigured, onClose, onSaved }) {
   )
 }
 
+// DB timestamps are UTC ("YYYY-MM-DD HH:MM:SS"); show them in the viewer's local time.
+const localTime = (s) => (s ? new Date(s.replace(' ', 'T') + 'Z').toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '—')
+
+function AcksModal({ event, onClose }) {
+  const acks = useLoader(() => consoleApi.happeningAcks(event.id), (r) => r)
+  const people = acks.data?.people ?? []
+  const done = people.filter((p) => p.acked_at).length
+
+  return (
+    <Modal title={`Acknowledgements — ${event.title}`} onClose={onClose} wide footer={<button type="button" className="cs-btn" onClick={onClose}>Close</button>}>
+      {acks.error && <p className="cs-error">{acks.error}</p>}
+      {!acks.data && !acks.error && <p className="cs-muted">Loading…</p>}
+      {acks.data && (
+        <>
+          <p className="cs-muted">
+            Latest push {localTime(acks.data.push.created_at)} · {done}/{people.length} acknowledged
+          </p>
+          <table className="cs-table">
+            <thead><tr><th>Name</th><th>Role</th><th>Notification</th><th>Acknowledged</th></tr></thead>
+            <tbody>
+              {people.map((p) => (
+                <tr key={p.id}>
+                  <td className="cs-strong">{p.name}</td>
+                  <td>{p.role_label ?? p.title ?? '—'}</td>
+                  <td>
+                    {p.notified_at ? localTime(p.notified_at)
+                      : p.devices ? <span className="cs-error">Failed to send</span>
+                      : <span className="cs-muted">No device subscribed</span>}
+                  </td>
+                  <td>{p.acked_at ? localTime(p.acked_at) : <span className="cs-muted">Pending</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="cs-field-hint">
+            "Notification" is when the push service accepted the message; it cannot confirm the device displayed it.
+            Everyone still sees the acknowledge sheet the next time they open the app.
+          </p>
+        </>
+      )}
+    </Modal>
+  )
+}
+
 export function EventsPage() {
   const events = useLoader(consoleApi.listHappenings, (r) => r)
   const brands = useLoader(consoleApi.listBrands, (r) => r.brands)
@@ -132,7 +176,7 @@ export function EventsPage() {
                 <td>{h.detail}</td>
                 <td>
                   {h.last_push_at
-                    ? <>{h.last_push_at.slice(0, 16).replace('T', ' ')} UTC<br /><span className="cs-muted">{h.acked}/{h.recipients} acknowledged</span></>
+                    ? <>{h.last_push_at.slice(0, 16).replace('T', ' ')} UTC<br /><button className="cs-link" onClick={() => setModal({ kind: 'acks', event: h })}>{h.acked}/{h.recipients} acknowledged</button></>
                     : <span className="cs-muted">Never</span>}
                 </td>
                 <td className="cs-col-actions">
@@ -148,6 +192,7 @@ export function EventsPage() {
       {modal?.kind === 'new' && (
         <EventModal brands={brands.data} pushConfigured={events.data.push_configured} onClose={() => setModal(null)} onSaved={saved} />
       )}
+      {modal?.kind === 'acks' && <AcksModal event={modal.event} onClose={() => setModal(null)} />}
       {modal?.kind === 'push' && (
         <ConfirmDialog
           title="Push again"
