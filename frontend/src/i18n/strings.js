@@ -2,7 +2,6 @@
 // so `zh` maps English -> 中文 and `en` maps 中文 -> English. Missing keys fall back to the source text.
 export const zh = {
   // login / auth errors
-  'Sign in to your account': '登入你的帳號',
   Email: '電子郵件',
   Password: '密碼',
   'Signing in…': '登入中…',

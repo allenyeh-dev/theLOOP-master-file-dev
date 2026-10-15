@@ -32,7 +32,6 @@ export function LoginPage() {
           <button type="button" className={lang === 'en' ? 'is-active' : ''} onClick={() => setLang('en')}>EN</button>
           <button type="button" className={lang === 'zh' ? 'is-active' : ''} onClick={() => setLang('zh')}>中文</button>
         </div>
-        <p className="login-subtitle">{t('Sign in to your account')}</p>
 
         <form onSubmit={handleSubmit} className="login-form">
           <label>

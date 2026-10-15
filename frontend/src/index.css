@@ -29,3 +29,10 @@ body {
 h1, h2, p {
   margin: 0;
 }
+
+/* Installed PWA: leave room at the top (status bar / notch + 10px). */
+@media (display-mode: standalone) {
+  body {
+    padding-top: calc(env(safe-area-inset-top) + 10px);
+  }
+}

@@ -25,13 +25,8 @@
   margin-bottom: 0.25rem;
 }
 
-.login-subtitle {
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  margin-bottom: 1.75rem;
-}
-
 .login-form {
+  margin-top: 1.75rem;
   display: flex;
   flex-direction: column;
   gap: 1.1rem;
