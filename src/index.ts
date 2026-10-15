@@ -7,6 +7,7 @@ import { happeningRoutes } from './routes/happenings'
 import { adminUserRoutes } from './routes/admin-users'
 import { consoleRoutes } from './routes/console'
 import { sopRoutes } from './routes/sops'
+import { pushRoutes } from './routes/push'
 import { requireAuth } from './middleware/auth'
 import type { AuthUser } from './lib/auth-db'
 
@@ -17,6 +18,9 @@ type Bindings = {
   SOP_AI_MODEL?: string
   RESEND_API_KEY?: string
   MAIL_FROM?: string
+  VAPID_PUBLIC_KEY?: string
+  VAPID_PRIVATE_KEY?: string
+  VAPID_SUBJECT?: string
 }
 
 type Variables = {
@@ -61,6 +65,7 @@ app.route('/api/happenings', happeningRoutes)
 app.route('/api/admin/users', adminUserRoutes)
 app.route('/api/console', consoleRoutes)
 app.route('/api/sops', sopRoutes)
+app.route('/api/push', pushRoutes)
 
 // Any authenticated account can see the staff directory, limited to people who share a brand with them.
 app.get('/api/staff', requireAuth, async (c) => {

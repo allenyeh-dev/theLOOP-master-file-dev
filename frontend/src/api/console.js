@@ -18,6 +18,11 @@ export const consoleApi = {
   updateSopDepartment: (id, p) => request(`/api/console/sop-departments/${id}`, json('PATCH', p)),
   deleteSopDepartment: (id) => request(`/api/console/sop-departments/${id}`, { method: 'DELETE' }),
 
+  listHappenings: () => request('/api/console/happenings'),
+  createHappening: (p) => request('/api/console/happenings', json('POST', p)),
+  pushHappening: (id) => request(`/api/console/happenings/${id}/push`, { method: 'POST' }),
+  deleteHappening: (id) => request(`/api/console/happenings/${id}`, { method: 'DELETE' }),
+
   listRoles: () => request('/api/console/roles'),
   createRole: (p) => request('/api/console/roles', json('POST', p)),
   updateRole: (id, p) => request(`/api/console/roles/${id}`, json('PATCH', p)),

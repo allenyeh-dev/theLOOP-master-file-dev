@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { fetchMe, login as loginRequest, logout as logoutRequest } from '../api/auth'
+import { detachPush, syncPush } from '../utils/push'
 
 const AuthContext = createContext(null)
 
@@ -9,7 +10,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     fetchMe()
-      .then((data) => setUser(data.user))
+      .then((data) => { setUser(data.user); syncPush() })
       .catch(() => setUser(null))
       .finally(() => setLoading(false))
   }, [])
@@ -17,10 +18,12 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (email, password) => {
     const data = await loginRequest(email, password)
     setUser(data.user)
+    syncPush()
     return data.user
   }, [])
 
   const logout = useCallback(async () => {
+    await detachPush() // needs the session, so before logoutRequest
     await logoutRequest().catch(() => {})
     setUser(null)
   }, [])

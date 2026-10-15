@@ -1,9 +1,32 @@
+import { useEffect, useState } from 'react'
 import { useLang } from '../i18n/LanguageContext'
 import { ChartIcon, GearIcon, SignOutIcon } from './icons'
+import { disablePush, enablePush, getPushState } from '../utils/push'
 import './ProfileMenu.css'
 
 export function ProfileMenu({ user, onSignOut, onClose, canManageUsers, onOpenAdminPanel }) {
   const { lang: language, setLang: setLanguage, t } = useLang()
+  const [push, setPush] = useState(null)
+  const [pushBusy, setPushBusy] = useState(false)
+
+  useEffect(() => { getPushState().then(setPush) }, [])
+
+  async function togglePush() {
+    setPushBusy(true)
+    try {
+      setPush(push === 'on' ? await disablePush() : await enablePush())
+    } catch {
+      setPush(await getPushState())
+    } finally {
+      setPushBusy(false)
+    }
+  }
+
+  const pushHint = {
+    'needs-install': t('Add to Home Screen to enable notifications'),
+    denied: t('Blocked — enable in system settings'),
+    unsupported: t('Not supported on this device'),
+  }[push]
 
   return (
     <>
@@ -33,6 +56,23 @@ export function ProfileMenu({ user, onSignOut, onClose, canManageUsers, onOpenAd
             </button>
           </div>
         </div>
+
+        {push && (
+          <div className="profile-menu-row profile-menu-row--language">
+            <span>
+              {t('Notifications')}
+              {pushHint && <small style={{ display: 'block', opacity: 0.6, fontSize: 11 }}>{pushHint}</small>}
+            </span>
+            <div className="language-toggle">
+              <button type="button" className={push === 'on' ? 'is-active' : ''} onClick={push === 'on' ? undefined : togglePush} disabled={pushBusy || Boolean(pushHint)}>
+                {t('On')}
+              </button>
+              <button type="button" className={push !== 'on' ? 'is-active' : ''} onClick={push === 'on' ? togglePush : undefined} disabled={pushBusy || Boolean(pushHint)}>
+                {t('Off')}
+              </button>
+            </div>
+          </div>
+        )}
 
         <button type="button" className="profile-menu-row profile-menu-row--link" disabled>
           <ChartIcon />

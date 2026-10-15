@@ -21,7 +21,7 @@ const ICONS = {
 const SWIPE_THRESHOLD = 40
 
 function HappeningCard({ happening, onClick, className = '', tabIndex }) {
-  const { pick } = useLang()
+  const { pick, t } = useLang()
   const Icon = ICONS[happening.icon] || CalendarIcon
   return (
     <article
@@ -41,7 +41,7 @@ function HappeningCard({ happening, onClick, className = '', tabIndex }) {
       <p className="happening-tag">{pick(happening, 'tag_label')}</p>
       <h3>{pick(happening, 'title')}</h3>
       <p className="happening-meta">
-        {happening.brand} · {pick(happening, 'event_date')}
+        {t(happening.brand)} · {pick(happening, 'event_date')}
       </p>
       <p className="happening-detail">{pick(happening, 'detail')}</p>
     </article>

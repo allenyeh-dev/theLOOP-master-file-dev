@@ -3,8 +3,10 @@ import { requireAuth, requireAdmin } from '../middleware/auth'
 import { hashPassword } from '../lib/password'
 import type { AuthUser } from '../lib/auth-db'
 import { insertUserBrands, replaceUserBrands, validBrandIds, withBrands } from '../lib/brands'
+import { pushConfigured, type PushEnv } from '../lib/webpush'
+import { pushHappening } from '../lib/happening-push'
 
-type Bindings = { DB: D1Database }
+type Bindings = { DB: D1Database } & PushEnv
 type Variables = { user: AuthUser }
 
 // Back-office console API. Every route requires an Admin/Ownership session.
@@ -564,5 +566,85 @@ consoleRoutes.delete('/permissions/:id', async (c) => {
     c.env.DB.prepare(`DELETE FROM role_permissions WHERE permission_id = ?`).bind(id),
     c.env.DB.prepare(`DELETE FROM permissions WHERE id = ?`).bind(id),
   ])
+  return c.json({ success: true })
+})
+
+/* ------------------------- Event announcements ------------------------- */
+
+const HAPPENING_ACCENTS = ['gold', 'red', 'green', 'orange']
+const HAPPENING_ICONS = ['music', 'people', 'calendar']
+
+consoleRoutes.get('/happenings', async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT h.id, h.brand, h.brand_id, h.all_brands, h.accent, h.icon, h.tag_label, h.title, h.event_date, h.detail,
+            lp.id AS last_push_id, lp.created_at AS last_push_at,
+            (SELECT COUNT(*) FROM happening_push_acks a WHERE a.push_id = lp.id) AS acked,
+            (SELECT COUNT(*) FROM users u WHERE u.is_active = 1
+               AND (h.all_brands = 1 OR u.id IN (SELECT user_id FROM user_brands WHERE brand_id = h.brand_id))) AS recipients
+     FROM brand_happenings h
+     LEFT JOIN happening_pushes lp ON lp.id = (SELECT MAX(id) FROM happening_pushes WHERE happening_id = h.id)
+     ORDER BY h.sort_order, h.id`
+  ).all()
+  return c.json({ success: true, happenings: results, push_configured: pushConfigured(c.env) })
+})
+
+// Publishes an event card to a brand's dashboard and (optionally) pushes it to every
+// subscribed device of that brand's users, so it surfaces on the lock screen.
+consoleRoutes.post('/happenings', async (c) => {
+  const body = await c.req.json().catch(() => null)
+  if (!body || typeof body !== 'object') return fail(c, 'Invalid request body')
+
+  // brand_id 'all' = company-wide: every active user sees it and is notified.
+  const allBrands = body.brand_id === 'all'
+  const brandId = Number.isInteger(body.brand_id) ? (body.brand_id as number) : null
+  const found = brandId
+    ? await c.env.DB.prepare(`SELECT id, label FROM brands WHERE id = ?`).bind(brandId).first<{ id: number; label: string }>()
+    : null
+  if (!allBrands && !found) return fail(c, 'Choose a brand')
+  const brand = allBrands ? { id: null, label: 'All Brands' } : found!
+
+  const tag_label = str(body.tag_label)
+  const title = str(body.title)
+  const event_date = str(body.event_date)
+  const detail = str(body.detail)
+  if (!tag_label || !title || !event_date || !detail) return fail(c, 'Tag, title, date and details are required')
+  if (title.length > 120 || tag_label.length > 40 || event_date.length > 60 || detail.length > 300) return fail(c, 'Text is too long')
+
+  const zh = (k: string) => str(body[k]) || null
+  const accent = HAPPENING_ACCENTS.includes(body.accent) ? body.accent : 'gold'
+  const icon = HAPPENING_ICONS.includes(body.icon) ? body.icon : 'calendar'
+
+  const result = await c.env.DB.prepare(
+    `INSERT INTO brand_happenings
+       (brand, brand_id, all_brands, accent, icon, tag_label, title, event_date, detail,
+        tag_label_zh, title_zh, event_date_zh, detail_zh, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+       (SELECT COALESCE(MIN(sort_order), 0) - 1 FROM brand_happenings))`
+  )
+    .bind(brand.label, brand.id, allBrands ? 1 : 0, accent, icon, tag_label, title, event_date, detail,
+      zh('tag_label_zh'), zh('title_zh'), zh('event_date_zh'), zh('detail_zh'))
+    .run()
+  const id = result.meta.last_row_id
+
+  const push = body.notify
+    ? await pushHappening(c.env, id, c.get('user').id)
+    : { requested: false, configured: pushConfigured(c.env), sent: 0, failed: 0 }
+  return c.json({ success: true, id, push }, 201)
+})
+
+// Push an existing event again; everyone in the brand is asked to acknowledge it anew.
+consoleRoutes.post('/happenings/:id/push', async (c) => {
+  const id = parseId(c.req.param('id'))
+  if (!id) return fail(c, 'Invalid id')
+  const push = await pushHappening(c.env, id, c.get('user').id)
+  if (!push) return fail(c, 'Event not found or not attached to a brand', 404)
+  return c.json({ success: true, push })
+})
+
+consoleRoutes.delete('/happenings/:id', async (c) => {
+  const id = parseId(c.req.param('id'))
+  if (!id) return fail(c, 'Invalid id')
+  const res = await c.env.DB.prepare(`DELETE FROM brand_happenings WHERE id = ?`).bind(id).run()
+  if (!res.meta.changes) return fail(c, 'Not found', 404)
   return c.json({ success: true })
 })
