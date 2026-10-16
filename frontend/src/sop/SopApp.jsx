@@ -17,8 +17,8 @@ function matches(s, q) {
   return parts.some((p) => p && p.toLowerCase().includes(q))
 }
 
-// Read-only side of SOP: browse published SOPs, mark read / flag, and approve. Creating and editing lives in SopEditApp.
-export function SopApp({ onExit, onEditSop, query = '', onClearQuery }) {
+// Read-only SOP: browse published SOPs, mark read / flag, and approve.
+export function SopApp({ query = '', onClearQuery }) {
   const { user, hasPermission } = useAuth()
   const { lang, t } = useLang()
   const canApprove = hasPermission('sop.approve')
@@ -61,7 +61,6 @@ export function SopApp({ onExit, onEditSop, query = '', onClearQuery }) {
         <SopDetail
           id={view.id}
           onBack={() => { setView({ name: 'list' }); loadList(); loadPending() }}
-          onEdit={(sop) => onEditSop(sop.sop_id)}
           onChanged={loadPending}
         />
       </div>
@@ -91,16 +90,11 @@ export function SopApp({ onExit, onEditSop, query = '', onClearQuery }) {
 
   return (
     <div className="sop">
-      <div className="sop-head">
-        <button type="button" className="sop-link" onClick={onExit}>{t('← 首頁')}</button>
-        <h1 className="sop-title">SOP</h1>
-      </div>
-
-      <div className="sop-tabs">
+      {tabs.length > 1 && <div className="sop-tabs">
         {tabs.map(([id, label]) => (
           <button key={id} type="button" className={tab === id ? 'is-active' : ''} onClick={() => setTab(id)}>{label}</button>
         ))}
-      </div>
+      </div>}
 
       {tab === 'published' && (
         <div className="sop-chips">

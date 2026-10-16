@@ -2,12 +2,11 @@ import { useEffect, useState } from 'react'
 import { sopApi } from '../api/sops'
 import { useAuth } from '../context/AuthContext'
 import { useLang } from '../i18n/LanguageContext'
-import { AiReview } from './SopWizard'
 import { localized } from './sopLang'
 
 const STATUS_KEYS = { draft: '草稿', in_review: '簽核中', rejected: '被退回', published: '已發布', superseded: '舊版' }
 
-export function SopDetail({ id, onBack, onEdit, onChanged }) {
+export function SopDetail({ id, onBack, onChanged }) {
   const { lang, t } = useLang()
   const { user, hasPermission } = useAuth()
   const [sop, setSop] = useState(null)
@@ -123,11 +122,6 @@ export function SopDetail({ id, onBack, onEdit, onChanged }) {
       )}
 
       {sop.status === 'published' && sop.latest_status === 'in_review' && <p className="sop-notice">{t('已有新版本簽核中，通過前仍顯示目前版本')}</p>}
-      {sop.can_edit && (
-        <button type="button" className="sop-btn sop-btn--primary sop-btn--wide" onClick={() => onEdit(sop)}>
-          {sop.status === 'published' ? t('編輯此 SOP（需重新簽核）') : t('修改後再送出')}
-        </button>
-      )}
 
       {sop.can_act && (
         <div className="sop-actions">
@@ -148,4 +142,16 @@ function Meta({ label, value }) {
 
 function Block({ title, children }) {
   return <div className="sop-section"><strong>{title}</strong><div>{children}</div></div>
+}
+
+function AiReview({ review }) {
+  const { t } = useLang()
+  return (
+    <div className="sop-ai">
+      <p><strong>{t('AI 建議（僅供參考）')}</strong></p>
+      {review.issues.length === 0 ? <p>{t('看起來沒有明顯問題')}</p> : (
+        <ul>{review.issues.map((i, n) => <li key={n}><strong>{i.field}</strong>：{i.problem} → {i.suggestion}</li>)}</ul>
+      )}
+    </div>
+  )
 }

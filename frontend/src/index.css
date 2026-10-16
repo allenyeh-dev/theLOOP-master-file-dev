@@ -30,22 +30,13 @@ h1, h2, p {
   margin: 0;
 }
 
-/* Installed PWA: leave room at the top (status bar / notch + 10px). */
+/* Installed PWA: hide every scrollbar (scrolling still works). */
 @media (display-mode: standalone) {
-  body {
-    padding-top: calc(env(safe-area-inset-top) + 10px);
-  }
-}
-
-/* Installed PWA: hide the page scrollbar (scrolling still works). */
-@media (display-mode: standalone) {
-  html,
-  body {
+  * {
     scrollbar-width: none;
   }
 
-  html::-webkit-scrollbar,
-  body::-webkit-scrollbar {
+  *::-webkit-scrollbar {
     display: none;
   }
 }

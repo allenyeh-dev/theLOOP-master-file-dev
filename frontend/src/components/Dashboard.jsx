@@ -12,7 +12,6 @@ import { AdminHub } from './AdminHub'
 import { ExecutiveOverview } from './ExecutiveOverview'
 import { AdminPanel } from './AdminPanel'
 import { SopApp } from '../sop/SopApp'
-import { SopEditApp } from '../sop/SopEditApp'
 import { OverviewFooter } from './OverviewFooter'
 import { SopShortcut } from './SopShortcut'
 import './Dashboard.css'
@@ -35,7 +34,6 @@ export function Dashboard() {
   const [adminPanelOpen, setAdminPanelOpen] = useState(false)
   const [nav, setNav] = useState({ stack: ['home'], pos: 0 })
   const [sopQuery, setSopQuery] = useState('')
-  const [sopEditId, setSopEditId] = useState(null)
   const [brand, setBrand] = useState(null)
   const view = nav.stack[nav.pos]
   // The OPS / S.O.P. tabs belong to a brand: shown on its page and on SOP screens reached from it, never on home.
@@ -87,8 +85,7 @@ export function Dashboard() {
         brandName={inBrand && brand ? [brand.label, brand.sub_label].filter(Boolean).join(' ') : null}
         brandLogo={inBrand && brand ? brand.logo_url : null}
         showSop={inBrand && (hasPermission('sop.submit') || hasPermission('sop.approve'))}
-        showSopEdit={hasPermission('sop.submit')}
-        onNavigate={(v) => { if (v === 'sop-edit') setSopEditId(null); navigate(v) }}
+        onNavigate={navigate}
       />
 
       {menuOpen && (
@@ -106,15 +103,11 @@ export function Dashboard() {
       <main className="content">
         {view === 'sop' ? (
           <SopApp
-            onExit={() => navigate('home')}
-            onEditSop={(id) => { setSopEditId(id); navigate('sop-edit') }}
             query={sopQuery}
             onClearQuery={() => setSopQuery('')}
           />
         ) : view === 'brand' && brand ? (
           <BrandPage key={brand.id} brand={brand} />
-        ) : view === 'sop-edit' ? (
-          <SopEditApp key={sopEditId ?? 'new'} onExit={() => navigate('home')} initialSopId={sopEditId} />
         ) : (
           <>
         {previewedRole && (
