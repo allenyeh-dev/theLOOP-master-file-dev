@@ -43,7 +43,7 @@ export function LoginPage() {
   return (
     <div className="login-screen">
       <div className="login-card">
-        <div className="logo">THE LOOP</div>
+		<img className="login-logo" src="/theloop_logo.png" alt="theLOOP" />
         <div className="language-toggle login-lang">
           <button type="button" className={lang === 'en' ? 'is-active' : ''} onClick={() => setLang('en')}>EN</button>
           <button type="button" className={lang === 'zh' ? 'is-active' : ''} onClick={() => setLang('zh')}>中文</button>

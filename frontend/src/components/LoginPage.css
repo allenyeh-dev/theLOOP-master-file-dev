@@ -17,12 +17,9 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
 }
 
-.login-card .logo {
-  font-family: 'Permanent Marker', cursive;
-  font-size: 2rem;
-  color: var(--accent);
-  transform: rotate(-2deg);
-  margin-bottom: 0.25rem;
+.login-card .login-logo {
+  display: block;
+  margin: 0 auto 1rem;
 }
 
 .login-form {

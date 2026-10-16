@@ -16,7 +16,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
+  padding: 0.25rem;
   cursor: pointer;
   overflow: hidden;
   color: #f3ede0;
@@ -32,12 +32,13 @@
 }
 
 .brand-logo-img {
-  max-width: 70%;
-  max-height: 70%;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
 }
 
 .brand-logo-text {
+  padding: 0.75rem;
   font-weight: 800;
   font-size: 1.05rem;
   letter-spacing: 0.04em;
