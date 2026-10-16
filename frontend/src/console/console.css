@@ -7,6 +7,11 @@
 .cs-side nav a { padding: 0.6rem 0.85rem; border-radius: 8px; color: var(--text-muted); text-decoration: none; font-size: 0.9rem; }
 .cs-side nav a:hover { background: var(--panel-alt); color: var(--text); }
 .cs-side nav a.is-active { background: var(--panel-alt); color: var(--accent); font-weight: 600; }
+.cs-nav-group-btn { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.85rem; border: 0; border-radius: 8px; background: none; color: var(--text-muted); font: inherit; font-size: 0.9rem; cursor: pointer; }
+.cs-nav-group-btn:hover { background: var(--panel-alt); color: var(--text); }
+.cs-nav-group-btn.is-active { background: var(--panel-alt); color: var(--accent); font-weight: 600; }
+.cs-nav-menu { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 4px; padding: 0.3rem; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; }
+.cs-side nav .cs-nav-menu a { padding: 0.5rem 0.75rem; font-size: 0.85rem; }
 .cs-side-foot { margin-top: auto; padding: 1rem 1.25rem; border-top: 1px solid var(--border); }
 .cs-side-foot a { color: var(--text-muted); text-decoration: none; font-size: 0.85rem; }
 .cs-side-foot a:hover { color: var(--text); }

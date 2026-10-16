@@ -324,6 +324,44 @@ consoleRoutes.delete('/brands/:id', async (c) => {
   return c.json({ success: true })
 })
 
+/* ------------------------------ SOP reads ----------------------------- */
+
+// Who is expected to read a published SOP: active users who share one of its brands (or any, if it
+// has none) and can see its department — mirrors the visibility rules in routes/sops.ts.
+const SOP_AUDIENCE = `u.is_active = 1
+  AND (NOT EXISTS (SELECT 1 FROM sop_brands sb WHERE sb.sop_id = s.id)
+    OR EXISTS (SELECT 1 FROM sop_brands sb JOIN user_brands ub ON ub.brand_id = sb.brand_id WHERE sb.sop_id = s.id AND ub.user_id = u.id))
+  AND (s.department_id IS NULL
+    OR EXISTS (SELECT 1 FROM sop_departments dd WHERE dd.id = s.department_id AND dd.is_general = 1)
+    OR EXISTS (SELECT 1 FROM user_departments ud WHERE ud.user_id = u.id AND ud.department_id = s.department_id)
+    OR EXISTS (SELECT 1 FROM role_permissions rp JOIN permissions p ON p.id = rp.permission_id WHERE rp.role_id = u.role_id AND p.key = 'sop.view_all'))`
+
+// Read receipts are per published version, so a new version resets everyone to unread.
+consoleRoutes.get('/sop-reads', async (c) => {
+  const { results: sops } = await c.env.DB.prepare(
+    `SELECT s.id AS sop_id, s.code, v.id AS version_id, v.version_no, v.title, v.published_at,
+            d.label AS dept_label, cat.label AS category_label
+     FROM sops s
+     JOIN sop_versions v ON v.id = s.published_version_id
+     LEFT JOIN sop_departments d ON d.id = s.department_id
+     LEFT JOIN sop_categories cat ON cat.id = s.category_id
+     ORDER BY s.code, s.id`
+  ).all<{ sop_id: number }>()
+  const { results: pairs } = await c.env.DB.prepare(
+    `SELECT s.id AS sop_id, u.id AS user_id, sr.read_at
+     FROM sops s
+     JOIN sop_versions v ON v.id = s.published_version_id
+     JOIN users u ON ${SOP_AUDIENCE}
+     LEFT JOIN sop_reads sr ON sr.user_id = u.id AND sr.version_id = v.id`
+  ).all<{ sop_id: number; user_id: number; read_at: string | null }>()
+  const { results: userRows } = await c.env.DB.prepare(
+    `SELECT u.id, u.name, u.email, u.title, r.label AS role_label
+     FROM users u LEFT JOIN roles r ON r.id = u.role_id WHERE u.is_active = 1 ORDER BY u.name`
+  ).all<{ id: number }>()
+  const users = await withDepartments(c.env.DB, await withBrands(c.env.DB, userRows))
+  return c.json({ success: true, sops, users, pairs })
+})
+
 /* --------------------------- SOP departments -------------------------- */
 
 consoleRoutes.get('/sop-departments', async (c) => {

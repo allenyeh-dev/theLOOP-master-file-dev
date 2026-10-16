@@ -43,7 +43,7 @@ export function SopDepartmentsPage() {
   return (
     <>
       <PageHead
-        title="SOP Departments"
+        title="SOP · Departments"
         subtitle="Filter chips on the SOP page and the middle part of each SOP number."
         action={<button className="cs-btn cs-btn--primary" onClick={() => setModal({ kind: 'edit' })} disabled={!depts.data}>+ New Department</button>}
       />
