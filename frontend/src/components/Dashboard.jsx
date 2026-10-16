@@ -36,6 +36,21 @@ export function Dashboard() {
   const [sopQuery, setSopQuery] = useState('')
   const [brand, setBrand] = useState(null)
   const view = nav.stack[nav.pos]
+  const [footerHidden, setFooterHidden] = useState(false)
+
+  // Hide the bottom bar while scrolling down, show it again on scroll up.
+  useEffect(() => {
+    let lastY = window.scrollY
+    const onScroll = () => {
+      const y = window.scrollY
+      const delta = y - lastY
+      if (Math.abs(delta) < 8) return
+      setFooterHidden(delta > 0 && y > 60)
+      lastY = y
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
   // The OPS / S.O.P. tabs belong to a brand: shown on its page and on SOP screens reached from it, never on home.
   const inBrand = (() => {
     for (let i = nav.pos; i >= 0; i--) {
@@ -154,7 +169,7 @@ export function Dashboard() {
         )}
       </main>
 
-      <div className="dashboard-footer">
+      <div className={`dashboard-footer${footerHidden ? ' is-hidden' : ''}`}>
         <OverviewFooter
           placeholder="Search SOPs, recipes, menus…"
           canBack={nav.pos > 0}

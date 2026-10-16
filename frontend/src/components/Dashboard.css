@@ -78,7 +78,9 @@
   padding: 0.6rem 1rem calc(0.5rem + env(safe-area-inset-bottom));
   background: linear-gradient(to top, var(--bg) 78%, transparent);
   backdrop-filter: blur(6px);
+  transition: transform 0.25s ease;
 }
+.dashboard-footer.is-hidden { transform: translateX(-50%) translateY(100%); }
 .dashboard-footer .ov-search-bar { margin-top: 0; }
 .dashboard-footer .ov-bottom-nav { margin-top: 0.6rem; padding-bottom: 0; justify-content: space-between; }
 /* Back on the far left, Forward on the far right, Home stays centered between them. */
