@@ -7,7 +7,7 @@ import { SopDetail } from './SopDetail'
 import './sop.css'
 
 const STATUS_KEYS = { draft: '草稿', in_review: '簽核中', rejected: '被退回', published: '已發布', superseded: '舊版' }
-const ADMIN_ROLES = ['admin', 'ownership']
+const ADMIN_ROLES = ['admin']
 
 // Search across both language versions of a SOP.
 function matches(s, q) {

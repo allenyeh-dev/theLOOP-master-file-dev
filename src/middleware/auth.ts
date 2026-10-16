@@ -44,7 +44,7 @@ export function requirePermission(permission: string) {
 // Role keys allowed into the back-office console. Access is tied to the role
 // itself (not a grantable permission) so the console's own role/permission
 // editor can never be used to open or close the door to the console.
-export const CONSOLE_ROLE_KEYS = ['admin', 'ownership']
+export const CONSOLE_ROLE_KEYS = ['admin']
 
 export async function requireAdmin(c: AppContext, next: Next) {
   const user = c.get('user')

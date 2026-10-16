@@ -10,15 +10,13 @@ type Variables = { user: AuthUser }
 export const adminUserRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
 // Every route here requires the 'users.manage' permission — this is the
-// account + role administration surface for accounts like Admin/Ownership.
+// account + role administration surface for accounts like Admin.
 adminUserRoutes.use('*', requireAuth, requirePermission('users.manage'))
 
-// 'ownership' is the top-tier role seeded directly in the database; it must
-// not be grantable through the admin API to avoid privilege escalation.
 async function findAssignableRole(db: D1Database, roleId: unknown) {
   if (typeof roleId !== 'number' || !Number.isInteger(roleId)) return null
   return db
-    .prepare(`SELECT id FROM roles WHERE id = ? AND key != 'ownership'`)
+    .prepare(`SELECT id FROM roles WHERE id = ?`)
     .bind(roleId)
     .first<{ id: number }>()
 }

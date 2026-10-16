@@ -24,11 +24,10 @@ function UserModal({ user, roles, brands, departments, onClose, onSaved }) {
     setForm({ ...form, brand_ids: next })
   }
   const isSelf = editing && user.id === me.id
-  const isOwnership = user?.role_key === 'ownership'
 
   const { busy, error, submit } = useSubmit(async () => {
     const payload = { name: form.name, email: form.email, title: form.title, is_active: form.is_active, brand_ids: [...form.brand_ids], department_ids: [...form.department_ids] }
-    if (!isOwnership) payload.role_id = Number(form.role_id)
+    payload.role_id = Number(form.role_id)
     if (form.brand_ids.size === 0) throw new Error('Select at least one brand')
     if (form.password) payload.password = form.password
     if (editing) {
@@ -56,17 +55,13 @@ function UserModal({ user, roles, brands, departments, onClose, onSaved }) {
         <Field label="Name"><input value={form.name} onChange={set('name')} required /></Field>
         <Field label="Email"><input type="email" value={form.email} onChange={set('email')} required /></Field>
         <Field label="Title"><input value={form.title} onChange={set('title')} /></Field>
-        <Field label="Role" hint={isOwnership ? 'Ownership accounts keep their role.' : isSelf ? 'You cannot change your own role.' : null}>
-          {isOwnership ? (
-            <input value="Ownership" disabled />
-          ) : (
-            <select value={form.role_id} onChange={set('role_id')} required disabled={isSelf}>
-              <option value="" disabled>Select a role</option>
-              {roles.filter((r) => r.key !== 'ownership').map((r) => (
-                <option key={r.id} value={r.id}>{r.label}</option>
-              ))}
-            </select>
-          )}
+        <Field label="Role" hint={isSelf ? 'You cannot change your own role.' : null}>
+          <select value={form.role_id} onChange={set('role_id')} required disabled={isSelf}>
+            <option value="" disabled>Select a role</option>
+            {roles.map((r) => (
+              <option key={r.id} value={r.id}>{r.label}</option>
+            ))}
+          </select>
         </Field>
         <div className="cs-field">
           <span className="cs-field-label">SOP departments ({form.department_ids.size})</span>
@@ -175,7 +170,6 @@ export function UsersPage() {
           </thead>
           <tbody>
             {filtered.map((u) => {
-              const locked = u.role_key === 'ownership' && me.role.key !== 'ownership'
               return (
                 <tr key={u.id}>
                   <td className="cs-strong">{u.name}{u.id === me.id && <span className="cs-you">you</span>}</td>
@@ -190,11 +184,11 @@ export function UsersPage() {
                   </td>
                   <td><span className={`cs-tag ${u.is_active ? 'cs-tag--ok' : 'cs-tag--off'}`}>{u.is_active ? 'Active' : 'Inactive'}</span></td>
                   <td className="cs-col-actions">
-                    <button className="cs-link" onClick={() => setModal({ kind: 'edit', user: u })} disabled={locked}>Edit</button>
-                    <button className="cs-link" onClick={() => toggleActive(u)} disabled={locked || u.id === me.id}>
+                    <button className="cs-link" onClick={() => setModal({ kind: 'edit', user: u })} >Edit</button>
+                    <button className="cs-link" onClick={() => toggleActive(u)} disabled={u.id === me.id}>
                       {u.is_active ? 'Deactivate' : 'Activate'}
                     </button>
-                    <button className="cs-link cs-link--danger" onClick={() => setModal({ kind: 'delete', user: u })} disabled={locked || u.id === me.id}>Delete</button>
+                    <button className="cs-link cs-link--danger" onClick={() => setModal({ kind: 'delete', user: u })} disabled={u.id === me.id}>Delete</button>
                   </td>
                 </tr>
               )

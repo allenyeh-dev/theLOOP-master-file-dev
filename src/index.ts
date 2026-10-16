@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { authRoutes } from './routes/auth'
 import { roleRoutes } from './routes/roles'
+import { brandRoutes } from './routes/brands'
 import { announcementRoutes } from './routes/announcements'
 import { happeningRoutes } from './routes/happenings'
 import { adminUserRoutes } from './routes/admin-users'
@@ -62,6 +63,7 @@ app.route('/api/auth', authRoutes)
 app.route('/api/roles', roleRoutes)
 app.route('/api/announcements', announcementRoutes)
 app.route('/api/happenings', happeningRoutes)
+app.route('/api/brands', brandRoutes)
 app.route('/api/admin/users', adminUserRoutes)
 app.route('/api/console', consoleRoutes)
 app.route('/api/sops', sopRoutes)

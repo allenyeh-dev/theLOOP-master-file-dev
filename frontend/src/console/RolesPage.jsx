@@ -109,14 +109,8 @@ export function RolesPage() {
                 </td>
                 <td>{r.user_count}</td>
                 <td className="cs-col-actions">
-                  {r.is_locked ? (
-                    <span className="cs-muted">Locked</span>
-                  ) : (
-                    <>
-                      <button className="cs-link" onClick={() => setModal({ kind: 'edit', role: r })}>Edit</button>
-                      <button className="cs-link cs-link--danger" onClick={() => setModal({ kind: 'delete', role: r })} disabled={r.is_system}>Delete</button>
-                    </>
-                  )}
+                  <button className="cs-link" onClick={() => setModal({ kind: 'edit', role: r })}>Edit</button>
+                  <button className="cs-link cs-link--danger" onClick={() => setModal({ kind: 'delete', role: r })} disabled={r.is_system}>Delete</button>
                 </td>
               </tr>
             ))}

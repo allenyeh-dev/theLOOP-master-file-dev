@@ -3,18 +3,16 @@ import { requireAuth, requireAdmin } from '../middleware/auth'
 import { hashPassword } from '../lib/password'
 import type { AuthUser } from '../lib/auth-db'
 import { insertUserBrands, replaceUserBrands, validBrandIds, withBrands } from '../lib/brands'
-import { pushConfigured, type PushEnv } from '../lib/webpush'
-import { pushHappening } from '../lib/happening-push'
 
-type Bindings = { DB: D1Database } & PushEnv
+type Bindings = { DB: D1Database }
 type Variables = { user: AuthUser }
 
-// Back-office console API. Every route requires an Admin/Ownership session.
+// Back-office console API. Every route requires an Admin session.
 export const consoleRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
 consoleRoutes.use('*', requireAuth, requireAdmin)
 
-const SYSTEM_ROLE_KEYS = ['admin', 'ownership', 'executive', 'gm', 'manager', 'chef']
+const SYSTEM_ROLE_KEYS = ['admin', 'executive', 'gm', 'manager', 'chef', 'foh', 'boh', 'bar']
 const SYSTEM_PERMISSION_KEYS = [
   'dashboard.view',
   'users.manage',
@@ -68,18 +66,12 @@ const parseId = (v: string) => {
 }
 const isUnique = (err: unknown) => (err as Error).message.includes('UNIQUE')
 
-// Only an Ownership account may touch another Ownership account, so an Admin
-// can neither demote nor lock out the top tier.
-function canTouch(actor: AuthUser, targetRoleKey: string | null) {
-  return targetRoleKey !== 'ownership' || actor.role.key === 'ownership'
-}
-
 /* ------------------------------- Users ------------------------------- */
 
 async function assignableRole(db: D1Database, roleId: unknown) {
   if (typeof roleId !== 'number' || !Number.isInteger(roleId)) return null
   return db
-    .prepare(`SELECT id FROM roles WHERE id = ? AND key != 'ownership'`)
+    .prepare(`SELECT id FROM roles WHERE id = ?`)
     .bind(roleId)
     .first<{ id: number }>()
 }
@@ -138,7 +130,6 @@ consoleRoutes.patch('/users/:id', async (c) => {
     .bind(id)
     .first<{ id: number; role_key: string | null }>()
   if (!target) return fail(c, 'Account not found', 404)
-  if (!canTouch(actor, target.role_key)) return fail(c, 'Only Ownership can modify an Ownership account', 403)
 
   const updates: string[] = []
   const values: unknown[] = []
@@ -216,7 +207,6 @@ consoleRoutes.delete('/users/:id', async (c) => {
     .bind(id)
     .first<{ role_key: string | null }>()
   if (!target) return fail(c, 'Account not found', 404)
-  if (!canTouch(actor, target.role_key)) return fail(c, 'Only Ownership can modify an Ownership account', 403)
 
   await c.env.DB.batch([
     c.env.DB.prepare(`DELETE FROM sessions WHERE user_id = ?`).bind(id),
@@ -227,9 +217,18 @@ consoleRoutes.delete('/users/:id', async (c) => {
 
 /* ------------------------------- Brands ------------------------------ */
 
+// Home-page card look: logo path (served from /brands/ or an https URL), tile colour, optional sub-label.
+function brandLook(body: any): { logo_url: string | null; bg_color: string | null; sub_label: string | null } | string {
+  const logo = str(body?.logo_url)
+  const bg = str(body?.bg_color)
+  if (logo && !/^(\/[\w./-]+|https:\/\/\S+)$/.test(logo)) return 'Logo must be a /path or https:// URL'
+  if (bg && !/^#[0-9a-fA-F]{6}$/.test(bg)) return 'Colour must look like #1a2b3c'
+  return { logo_url: logo || null, bg_color: bg || null, sub_label: str(body?.sub_label).slice(0, 30) || null }
+}
+
 consoleRoutes.get('/brands', async (c) => {
   const { results } = await c.env.DB.prepare(
-    `SELECT b.id, b.key, b.label, b.code,
+    `SELECT b.id, b.key, b.label, b.code, b.logo_url, b.bg_color, b.sub_label,
             (SELECT COUNT(*) FROM user_brands ub WHERE ub.brand_id = b.id) as user_count
      FROM brands b ORDER BY b.sort_order, b.id`
   ).all()
@@ -244,12 +243,14 @@ consoleRoutes.post('/brands', async (c) => {
   if (code && !BRAND_CODE_RE.test(code)) return fail(c, 'Code must be 2-5 letters/digits')
   if (!BRAND_KEY_RE.test(key)) return fail(c, 'Key must be 2-32 chars: lowercase letters, digits, underscore, starting with a letter')
   if (!label) return fail(c, 'Label is required')
+  const look = brandLook(body)
+  if (typeof look === 'string') return fail(c, look)
 
   try {
     const result = await c.env.DB.prepare(
-      `INSERT INTO brands (key, label, code, sort_order) VALUES (?, ?, ?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM brands))`
+      `INSERT INTO brands (key, label, code, logo_url, bg_color, sub_label, sort_order) VALUES (?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM brands))`
     )
-      .bind(key, label, code)
+      .bind(key, label, code, look.logo_url, look.bg_color, look.sub_label)
       .run()
     return c.json({ success: true, id: result.meta.last_row_id }, 201)
   } catch (err) {
@@ -281,6 +282,14 @@ consoleRoutes.patch('/brands/:id', async (c) => {
     if (code && !BRAND_CODE_RE.test(code)) return fail(c, 'Code must be 2-5 letters/digits')
     updates.push('code = ?')
     values.push(code || null)
+  }
+  const look = brandLook(body)
+  if (typeof look === 'string') return fail(c, look)
+  for (const k of ['logo_url', 'bg_color', 'sub_label'] as const) {
+    if (body[k] !== undefined) {
+      updates.push(`${k} = ?`)
+      values.push(look[k])
+    }
   }
   if (updates.length === 0) return fail(c, 'No changes provided')
 
@@ -396,7 +405,6 @@ consoleRoutes.get('/roles', async (c) => {
       ...r,
       permission_ids: byRole.get(r.id) ?? [],
       is_system: SYSTEM_ROLE_KEYS.includes(r.key),
-      is_locked: r.key === 'ownership',
     })),
   })
 })
@@ -434,7 +442,6 @@ consoleRoutes.patch('/roles/:id', async (c) => {
 
   const role = await c.env.DB.prepare(`SELECT id, key FROM roles WHERE id = ?`).bind(id).first<{ id: number; key: string }>()
   if (!role) return fail(c, 'Role not found', 404)
-  if (role.key === 'ownership') return fail(c, 'The Ownership role is locked', 403)
 
   const stmts: D1PreparedStatement[] = []
   if (body.label !== undefined) {
@@ -507,13 +514,6 @@ consoleRoutes.post('/permissions', async (c) => {
     const result = await c.env.DB.prepare(`INSERT INTO permissions (key, description) VALUES (?, ?)`)
       .bind(key, description)
       .run()
-    // Ownership is defined as holding every permission; keep that invariant.
-    await c.env.DB.prepare(
-      `INSERT INTO role_permissions (role_id, permission_id)
-       SELECT id, ? FROM roles WHERE key = 'ownership'`
-    )
-      .bind(result.meta.last_row_id)
-      .run()
     return c.json({ success: true, id: result.meta.last_row_id }, 201)
   } catch (err) {
     return fail(c, isUnique(err) ? 'A permission with that key already exists' : 'Failed to create permission', 409)
@@ -577,24 +577,19 @@ const HAPPENING_ICONS = ['music', 'people', 'calendar']
 consoleRoutes.get('/happenings', async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT h.id, h.brand, h.brand_id, h.all_brands, h.accent, h.icon, h.tag_label, h.title, h.event_date, h.detail,
-            lp.id AS last_push_id, lp.created_at AS last_push_at,
-            (SELECT COUNT(*) FROM happening_push_acks a WHERE a.push_id = lp.id) AS acked,
-            (SELECT COUNT(*) FROM users u WHERE u.is_active = 1
-               AND (h.all_brands = 1 OR u.id IN (SELECT user_id FROM user_brands WHERE brand_id = h.brand_id))) AS recipients
+            h.tag_label_zh, h.title_zh, h.event_date_zh, h.detail_zh
      FROM brand_happenings h
-     LEFT JOIN happening_pushes lp ON lp.id = (SELECT MAX(id) FROM happening_pushes WHERE happening_id = h.id)
      ORDER BY h.sort_order, h.id`
   ).all()
-  return c.json({ success: true, happenings: results, push_configured: pushConfigured(c.env) })
+  return c.json({ success: true, happenings: results })
 })
 
-// Publishes an event card to a brand's dashboard and (optionally) pushes it to every
-// subscribed device of that brand's users, so it surfaces on the lock screen.
+// Publishes an event card to a brand (or company-wide). Events are view-only: no notification is sent.
 consoleRoutes.post('/happenings', async (c) => {
   const body = await c.req.json().catch(() => null)
   if (!body || typeof body !== 'object') return fail(c, 'Invalid request body')
 
-  // brand_id 'all' = company-wide: every active user sees it and is notified.
+  // brand_id 'all' = company-wide: every user sees it.
   const allBrands = body.brand_id === 'all'
   const brandId = Number.isInteger(body.brand_id) ? (body.brand_id as number) : null
   const found = brandId
@@ -626,53 +621,188 @@ consoleRoutes.post('/happenings', async (c) => {
     .run()
   const id = result.meta.last_row_id
 
-  const push = body.notify
-    ? await pushHappening(c.env, id, c.get('user').id)
-    : { requested: false, configured: pushConfigured(c.env), sent: 0, failed: 0 }
-  return c.json({ success: true, id, push }, 201)
-})
-
-// Who was asked to acknowledge the latest push, whether each got a notification, and when they acknowledged.
-consoleRoutes.get('/happenings/:id/acks', async (c) => {
-  const id = parseId(c.req.param('id'))
-  if (!id) return fail(c, 'Invalid id')
-  const push = await c.env.DB.prepare(
-    `SELECT p.id, p.created_at, h.title, h.brand, h.all_brands, h.brand_id
-     FROM happening_pushes p JOIN brand_happenings h ON h.id = p.happening_id
-     WHERE p.happening_id = ? ORDER BY p.id DESC LIMIT 1`
-  ).bind(id).first<{ id: number; created_at: string; title: string; brand: string; all_brands: number; brand_id: number | null }>()
-  if (!push) return fail(c, 'This event has not been pushed yet', 404)
-
-  const { results } = await c.env.DB.prepare(
-    `SELECT u.id, u.name, u.title, r.label AS role_label,
-            a.acked_at,
-            (SELECT MIN(d.sent_at) FROM happening_push_deliveries d
-               WHERE d.push_id = ?1 AND d.user_id = u.id AND d.status = 'sent') AS notified_at,
-            (SELECT COUNT(*) FROM happening_push_deliveries d WHERE d.push_id = ?1 AND d.user_id = u.id) AS devices
-     FROM users u
-     LEFT JOIN roles r ON r.id = u.role_id
-     LEFT JOIN happening_push_acks a ON a.push_id = ?1 AND a.user_id = u.id
-     WHERE u.is_active = 1
-       AND (?2 = 1 OR u.id IN (SELECT user_id FROM user_brands WHERE brand_id = ?3))
-     ORDER BY (a.acked_at IS NULL), a.acked_at, u.name`
-  ).bind(push.id, push.all_brands, push.brand_id).all()
-
-  return c.json({ success: true, push: { id: push.id, created_at: push.created_at, title: push.title, brand: push.brand }, people: results })
-})
-
-// Push an existing event again; everyone in the brand is asked to acknowledge it anew.
-consoleRoutes.post('/happenings/:id/push', async (c) => {
-  const id = parseId(c.req.param('id'))
-  if (!id) return fail(c, 'Invalid id')
-  const push = await pushHappening(c.env, id, c.get('user').id)
-  if (!push) return fail(c, 'Event not found or not attached to a brand', 404)
-  return c.json({ success: true, push })
+  return c.json({ success: true, id }, 201)
 })
 
 consoleRoutes.delete('/happenings/:id', async (c) => {
   const id = parseId(c.req.param('id'))
   if (!id) return fail(c, 'Invalid id')
   const res = await c.env.DB.prepare(`DELETE FROM brand_happenings WHERE id = ?`).bind(id).run()
+  if (!res.meta.changes) return fail(c, 'Not found', 404)
+  return c.json({ success: true })
+})
+
+/* ------------------------- HQ announcements ------------------------- */
+
+const ANNOUNCEMENT_ACCENTS = ['gold', 'orange', 'red']
+const TAG_VARIANTS = ['gold', 'orange', 'red']
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+type Tag = { label: string; label_zh: string | null; variant: string }
+type Content = {
+  title: string
+  body: string
+  title_zh: string | null
+  body_zh: string | null
+  accent: string
+  posted_by: string
+  posted_at: string
+  tags: Tag[]
+}
+
+// Shared by HQ announcements and brand notices: validates the text/tag fields.
+function parseContent(body: any, defaultPostedBy: string): Content | string {
+  if (!body || typeof body !== 'object') return 'Invalid request body'
+  const title = str(body.title)
+  const text = str(body.body)
+  if (!title || !text) return 'Title and body are required'
+  if (title.length > 120 || text.length > 600) return 'Text is too long'
+
+  const posted_at = str(body.posted_at) || new Date().toISOString().slice(0, 10)
+  if (!DATE_RE.test(posted_at)) return 'Invalid date'
+
+  const tags: Tag[] = []
+  for (const t of Array.isArray(body.tags) ? body.tags : []) {
+    const label = str(t?.label)
+    if (!label) continue
+    if (label.length > 40) return 'Tag is too long'
+    tags.push({ label, label_zh: str(t.label_zh) || null, variant: TAG_VARIANTS.includes(t.variant) ? t.variant : 'gold' })
+  }
+  if (tags.length > 4) return 'At most 4 tags'
+
+  return {
+    title,
+    body: text,
+    title_zh: str(body.title_zh) || null,
+    body_zh: str(body.body_zh) || null,
+    accent: ANNOUNCEMENT_ACCENTS.includes(body.accent) ? body.accent : 'gold',
+    posted_by: str(body.posted_by).slice(0, 60) || defaultPostedBy,
+    posted_at,
+    tags,
+  }
+}
+
+// ISO timestamp (from the browser) -> UTC 'YYYY-MM-DD HH:MM:SS', the format SQLite's datetime('now') compares against.
+function parseWhen(v: unknown): string | null | undefined {
+  const s = str(v)
+  if (!s) return null
+  const d = new Date(s)
+  return Number.isNaN(d.getTime()) ? undefined : d.toISOString().slice(0, 19).replace('T', ' ')
+}
+
+type Announcement = Content & { starts_at: string | null; ends_at: string | null }
+
+function parseAnnouncement(body: any, defaultPostedBy: string): Announcement | string {
+  const content = parseContent(body, defaultPostedBy)
+  if (typeof content === 'string') return content
+  const starts_at = parseWhen(body.starts_at)
+  const ends_at = parseWhen(body.ends_at)
+  if (starts_at === undefined || ends_at === undefined) return 'Invalid publish time'
+  if (starts_at && ends_at && ends_at <= starts_at) return 'Take-down time must be after the publish time'
+  return { ...content, starts_at, ends_at }
+}
+
+const announcementTags = (db: D1Database, id: number, tags: Tag[]) => [
+  db.prepare(`DELETE FROM announcement_tags WHERE announcement_id = ?`).bind(id),
+  ...tags.map((t, i) =>
+    db.prepare(`INSERT INTO announcement_tags (announcement_id, label, label_zh, variant, sort_order) VALUES (?, ?, ?, ?, ?)`)
+      .bind(id, t.label, t.label_zh, t.variant, i)),
+]
+
+consoleRoutes.get('/announcements', async (c) => {
+  const [{ results: rows }, { results: tags }] = (await c.env.DB.batch([
+    c.env.DB.prepare(`SELECT id, title, body, title_zh, body_zh, accent, posted_by, posted_at, starts_at, ends_at FROM announcements ORDER BY posted_at DESC, id DESC`),
+    c.env.DB.prepare(`SELECT announcement_id, label, label_zh, variant FROM announcement_tags ORDER BY announcement_id, sort_order`),
+  ])) as unknown as [{ results: { id: number }[] }, { results: any[] }]
+
+  const tagMap = new Map<number, Tag[]>()
+  for (const t of tags) tagMap.set(t.announcement_id, [...(tagMap.get(t.announcement_id) ?? []), { label: t.label, label_zh: t.label_zh, variant: t.variant }])
+  return c.json({ success: true, announcements: rows.map((a) => ({ ...a, tags: tagMap.get(a.id) ?? [] })) })
+})
+
+consoleRoutes.post('/announcements', async (c) => {
+  const user = c.get('user')
+  const a = parseAnnouncement(await c.req.json().catch(() => null), user.title || user.name)
+  if (typeof a === 'string') return fail(c, a)
+
+  const res = await c.env.DB.prepare(
+    `INSERT INTO announcements (title, body, title_zh, body_zh, accent, posted_by, posted_at, starts_at, ends_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(a.title, a.body, a.title_zh, a.body_zh, a.accent, a.posted_by, a.posted_at, a.starts_at, a.ends_at).run()
+  const id = res.meta.last_row_id
+  await c.env.DB.batch(announcementTags(c.env.DB, id, a.tags))
+  return c.json({ success: true, id }, 201)
+})
+
+consoleRoutes.patch('/announcements/:id', async (c) => {
+  const id = parseId(c.req.param('id'))
+  if (!id) return fail(c, 'Invalid id')
+  const user = c.get('user')
+  const a = parseAnnouncement(await c.req.json().catch(() => null), user.title || user.name)
+  if (typeof a === 'string') return fail(c, a)
+
+  const res = await c.env.DB.prepare(
+    `UPDATE announcements SET title = ?, body = ?, title_zh = ?, body_zh = ?, accent = ?, posted_by = ?, posted_at = ?, starts_at = ?, ends_at = ? WHERE id = ?`
+  ).bind(a.title, a.body, a.title_zh, a.body_zh, a.accent, a.posted_by, a.posted_at, a.starts_at, a.ends_at, id).run()
+  if (!res.meta.changes) return fail(c, 'Not found', 404)
+  await c.env.DB.batch(announcementTags(c.env.DB, id, a.tags))
+  return c.json({ success: true })
+})
+
+consoleRoutes.delete('/announcements/:id', async (c) => {
+  const id = parseId(c.req.param('id'))
+  if (!id) return fail(c, 'Invalid id')
+  const res = await c.env.DB.prepare(`DELETE FROM announcements WHERE id = ?`).bind(id).run()
+  if (!res.meta.changes) return fail(c, 'Not found', 404)
+  return c.json({ success: true })
+})
+
+/* ------------------------- Brand notices ------------------------- */
+
+const noticeBrand = (db: D1Database, v: unknown) =>
+  Number.isInteger(v) ? db.prepare(`SELECT id FROM brands WHERE id = ?`).bind(v).first() : null
+
+consoleRoutes.get('/brand-notices', async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT n.id, n.brand_id, b.label AS brand, n.title, n.body, n.title_zh, n.body_zh, n.accent, n.tags, n.posted_by, n.posted_at
+     FROM brand_notices n JOIN brands b ON b.id = n.brand_id
+     ORDER BY n.posted_at DESC, n.id DESC`
+  ).all<{ tags: string }>()
+  return c.json({ success: true, notices: results.map((n) => ({ ...n, tags: JSON.parse(n.tags) })) })
+})
+
+consoleRoutes.post('/brand-notices', async (c) => {
+  const user = c.get('user')
+  const body = await c.req.json().catch(() => null)
+  const n = parseContent(body, user.title || user.name)
+  if (typeof n === 'string') return fail(c, n)
+  if (!(await noticeBrand(c.env.DB, body.brand_id))) return fail(c, 'Choose a brand')
+
+  const res = await c.env.DB.prepare(
+    `INSERT INTO brand_notices (brand_id, title, body, title_zh, body_zh, accent, tags, posted_by, posted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(body.brand_id, n.title, n.body, n.title_zh, n.body_zh, n.accent, JSON.stringify(n.tags), n.posted_by, n.posted_at).run()
+  return c.json({ success: true, id: res.meta.last_row_id }, 201)
+})
+
+consoleRoutes.patch('/brand-notices/:id', async (c) => {
+  const id = parseId(c.req.param('id'))
+  if (!id) return fail(c, 'Invalid id')
+  const user = c.get('user')
+  const body = await c.req.json().catch(() => null)
+  const n = parseContent(body, user.title || user.name)
+  if (typeof n === 'string') return fail(c, n)
+  if (!(await noticeBrand(c.env.DB, body.brand_id))) return fail(c, 'Choose a brand')
+
+  const res = await c.env.DB.prepare(
+    `UPDATE brand_notices SET brand_id = ?, title = ?, body = ?, title_zh = ?, body_zh = ?, accent = ?, tags = ?, posted_by = ?, posted_at = ? WHERE id = ?`
+  ).bind(body.brand_id, n.title, n.body, n.title_zh, n.body_zh, n.accent, JSON.stringify(n.tags), n.posted_by, n.posted_at, id).run()
+  if (!res.meta.changes) return fail(c, 'Not found', 404)
+  return c.json({ success: true })
+})
+
+consoleRoutes.delete('/brand-notices/:id', async (c) => {
+  const id = parseId(c.req.param('id'))
+  if (!id) return fail(c, 'Invalid id')
+  const res = await c.env.DB.prepare(`DELETE FROM brand_notices WHERE id = ?`).bind(id).run()
   if (!res.meta.changes) return fail(c, 'Not found', 404)
   return c.json({ success: true })
 })

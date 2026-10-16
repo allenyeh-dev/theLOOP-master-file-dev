@@ -4,7 +4,7 @@ import { ConfirmDialog, Field, Modal, PageHead, useLoader, useSubmit } from './u
 
 function BrandModal({ brand, onClose, onSaved }) {
   const editing = Boolean(brand)
-  const [form, setForm] = useState({ key: brand?.key ?? '', label: brand?.label ?? '', code: brand?.code ?? '' })
+  const [form, setForm] = useState({ key: brand?.key ?? '', label: brand?.label ?? '', code: brand?.code ?? '', logo_url: brand?.logo_url ?? '', bg_color: brand?.bg_color ?? '', sub_label: brand?.sub_label ?? '' })
 
   const { busy, error, submit } = useSubmit(
     () => (editing ? consoleApi.updateBrand(brand.id, form) : consoleApi.createBrand(form)),
@@ -32,6 +32,13 @@ function BrandModal({ brand, onClose, onSaved }) {
         <Field label="SOP code" hint="2-5 letters/digits, used in SOP numbers (e.g. SF-BOH-002). Blank = first 3 letters of the key.">
           <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} maxLength={5} />
         </Field>
+        <Field label="Logo" hint="Path of an image in frontend/public/brands/ (e.g. /brands/kor.png) or an https:// URL. Shown on the home-page brand card.">
+          <input value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} placeholder="/brands/kor.png" />
+        </Field>
+        <div className="cs-form-row">
+          <Field label="Card colour" hint="#rrggbb"><input value={form.bg_color} onChange={(e) => setForm({ ...form, bg_color: e.target.value })} placeholder="#000000" maxLength={7} /></Field>
+          <Field label="Sub-label" hint="e.g. Xinyi"><input value={form.sub_label} onChange={(e) => setForm({ ...form, sub_label: e.target.value })} maxLength={30} /></Field>
+        </div>
         {error && <p className="cs-error">{error}</p>}
       </form>
     </Modal>

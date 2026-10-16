@@ -56,6 +56,19 @@
   /* transform: rotate(-2deg); */
 }
 
+.topnav-main .logo--brand {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  font-size: 1.7rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .avatar-button {
   position: relative;
   width: 40px;

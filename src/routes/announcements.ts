@@ -11,14 +11,10 @@ announcementRoutes.get('/', requireAuth, async (c) => {
   const { results: announcements } = await c.env.DB.prepare(
     `SELECT a.id, a.title, a.body, a.title_zh, a.body_zh, a.accent, a.posted_by, a.posted_at
      FROM announcements a
-     WHERE NOT EXISTS (SELECT 1 FROM announcement_brands ab WHERE ab.announcement_id = a.id)
-        OR EXISTS (
-          SELECT 1 FROM announcement_brands ab
-          JOIN user_brands ub ON ub.brand_id = ab.brand_id
-          WHERE ab.announcement_id = a.id AND ub.user_id = ?
-        )
+     WHERE (a.starts_at IS NULL OR a.starts_at <= datetime('now'))
+       AND (a.ends_at IS NULL OR a.ends_at > datetime('now'))
      ORDER BY a.posted_at DESC, a.id DESC`
-  ).bind(c.get('user').id).all<{
+  ).all<{
     id: number
     title: string
     body: string

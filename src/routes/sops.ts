@@ -19,7 +19,7 @@ const fail = (c: any, msg: string | [string, string], status = 400) =>
 const bi = (zh: string, en: string): [string, string] => [zh, en]
 const parseId = (v: string) => (/^\d+$/.test(v) ? Number(v) : null)
 const isAdmin = (u: AuthUser) => CONSOLE_ROLE_KEYS.includes(u.role.key)
-// Editors cannot approve a version they edited/submitted — except admin/ownership on the step assigned to the
+// Editors cannot approve a version they edited/submitted — except admin on the step assigned to the
 // admin role, so an admin-edited SOP can still be completed (they still cannot sign the manager/GM steps).
 const selfOk = (u: AuthUser, editorId: number, stepRoleKey?: string) =>
   editorId !== u.id || (isAdmin(u) && stepRoleKey === 'admin')
@@ -53,7 +53,7 @@ sopRoutes.get('/roles', async (c) => {
   return c.json({ success: true, roles: results })
 })
 
-// Flags raised on published SOPs; admin/ownership only.
+// Flags raised on published SOPs; admin only.
 sopRoutes.get('/flags', async (c) => {
   if (!isAdmin(c.get('user'))) return fail(c, 'Forbidden', 403)
   const { results } = await c.env.DB.prepare(
@@ -581,7 +581,7 @@ sopRoutes.post('/:id/flag', async (c) => {
   if (!reason) return fail(c, bi('請寫下哪裡有問題', 'Please describe the problem'))
 
   const { results: admins } = await c.env.DB.prepare(
-    `SELECT u.email FROM users u JOIN roles r ON r.id = u.role_id WHERE r.key IN ('admin', 'ownership') AND u.is_active = 1`
+    `SELECT u.email FROM users u JOIN roles r ON r.id = u.role_id WHERE r.key IN ('admin') AND u.is_active = 1`
   ).all<{ email: string }>()
   const label = `${row.code ?? ''} ${row.title}`.trim()
   await c.env.DB.batch([

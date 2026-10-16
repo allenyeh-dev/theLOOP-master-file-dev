@@ -20,9 +20,17 @@ export const consoleApi = {
 
   listHappenings: () => request('/api/console/happenings'),
   createHappening: (p) => request('/api/console/happenings', json('POST', p)),
-  pushHappening: (id) => request(`/api/console/happenings/${id}/push`, { method: 'POST' }),
-  happeningAcks: (id) => request(`/api/console/happenings/${id}/acks`),
   deleteHappening: (id) => request(`/api/console/happenings/${id}`, { method: 'DELETE' }),
+
+  listAnnouncements: () => request('/api/console/announcements'),
+  createAnnouncement: (p) => request('/api/console/announcements', json('POST', p)),
+  updateAnnouncement: (id, p) => request(`/api/console/announcements/${id}`, json('PATCH', p)),
+  deleteAnnouncement: (id) => request(`/api/console/announcements/${id}`, { method: 'DELETE' }),
+
+  listBrandNotices: () => request('/api/console/brand-notices'),
+  createBrandNotice: (p) => request('/api/console/brand-notices', json('POST', p)),
+  updateBrandNotice: (id, p) => request(`/api/console/brand-notices/${id}`, json('PATCH', p)),
+  deleteBrandNotice: (id) => request(`/api/console/brand-notices/${id}`, { method: 'DELETE' }),
 
   listRoles: () => request('/api/console/roles'),
   createRole: (p) => request('/api/console/roles', json('POST', p)),

@@ -1,7 +1,6 @@
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { LoginPage } from './components/LoginPage'
 import { Dashboard } from './components/Dashboard'
-import { UrgentSheet } from './components/UrgentSheet'
 import { AdminConsole, isConsolePath } from './console/AdminConsole'
 import { LanguageProvider } from './i18n/LanguageContext'
 import './App.css'
@@ -18,7 +17,6 @@ function AppShell() {
   return (
     <>
       <Dashboard />
-      <UrgentSheet />
     </>
   )
 }

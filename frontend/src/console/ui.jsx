@@ -115,3 +115,39 @@ export function useLoader(fetcher, pick) {
 
   return { data, error, reload: () => setTick((t) => t + 1) }
 }
+
+export const TAG_VARIANTS = ['gold', 'orange', 'red']
+
+// Editable list of up to 4 tags: {label, label_zh, variant}.
+export function TagsField({ tags, onChange }) {
+  const setTag = (i, patch) => onChange(tags.map((t, j) => (j === i ? { ...t, ...patch } : t)))
+  return (
+    <Field label="Tags" hint="Up to 4, e.g. ALL OUTLETS / REQUIRED.">
+      <div className="cs-form">
+        {tags.map((t, i) => (
+          <div className="cs-form-row" key={i} style={{ gridTemplateColumns: '1fr 1fr 7rem auto' }}>
+            <input value={t.label} onChange={(e) => setTag(i, { label: e.target.value })} placeholder="Label" maxLength={40} />
+            <input value={t.label_zh} onChange={(e) => setTag(i, { label_zh: e.target.value })} placeholder="標籤（選填）" maxLength={40} />
+            <select value={t.variant} onChange={(e) => setTag(i, { variant: e.target.value })}>
+              {TAG_VARIANTS.map((v) => <option key={v} value={v}>{v}</option>)}
+            </select>
+            <button type="button" className="cs-link cs-link--danger" onClick={() => onChange(tags.filter((_, j) => j !== i))}>Remove</button>
+          </div>
+        ))}
+        {tags.length < 4 && (
+          <div><button type="button" className="cs-link" onClick={() => onChange([...tags, { label: '', label_zh: '', variant: 'gold' }])}>+ Add tag</button></div>
+        )}
+      </div>
+    </Field>
+  )
+}
+
+// DB times are UTC 'YYYY-MM-DD HH:MM:SS'. <input type=datetime-local> works in local time.
+export const utcToLocalInput = (s) => {
+  if (!s) return ''
+  const d = new Date(s.replace(' ', 'T') + 'Z')
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+}
+export const localInputToIso = (s) => (s ? new Date(s).toISOString() : '')
+export const formatUtc = (s) =>
+  s ? new Date(s.replace(' ', 'T') + 'Z').toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : null

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useLang } from '../i18n/LanguageContext'
-import { ChevronLeftIcon, ChevronRightIcon, HomeIcon, SearchIcon } from './icons'
+import { ChevronLeftIcon, ChevronRightIcon, SearchIcon } from './icons'
 
 export function OverviewFooter({ placeholder, onHome, onBack, onForward, canBack = false, canForward = false, onSearch }) {
   const { t } = useLang()
@@ -24,7 +24,7 @@ export function OverviewFooter({ placeholder, onHome, onBack, onForward, canBack
           <ChevronLeftIcon width="16" height="16" />
         </button>
         <button type="button" className="ov-bnav-btn ov-bnav-home" onClick={onHome} aria-label={t('Home')}>
-          <HomeIcon />
+          <img src="/theloop_logo.png" alt="" width="34" height="34" style={{ objectFit: "contain" }} />
         </button>
         <button type="button" className="ov-bnav-btn" disabled={!canForward} onClick={onForward} aria-label={t('Forward')}>
           <ChevronRightIcon width="16" height="16" />

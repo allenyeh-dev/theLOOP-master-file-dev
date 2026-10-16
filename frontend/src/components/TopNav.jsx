@@ -15,6 +15,7 @@ export function TopNav({
   onNavigate,
   showSop,
   showSopEdit,
+  brandName,
 }) {
   const { t } = useLang()
   const [sopOpen, setSopOpen] = useState(false)
@@ -65,7 +66,13 @@ export function TopNav({
       )}
 
       <div className="topnav-main">
-        <div className="logo">THE LOOP</div>
+        {brandName ? (
+          <button type="button" className="logo logo--brand" onClick={() => { setSopOpen(false); onNavigate('brand') }}>
+            {brandName}
+          </button>
+        ) : (
+          <div className="logo">THE LOOP</div>
+        )}
 
         <button type="button" className="avatar-button" onClick={onToggleMenu} aria-label={t('Account menu')}>
           <PersonIcon />
@@ -75,7 +82,7 @@ export function TopNav({
 
       {showSop && (
         <nav className="topnav-tabs" aria-label="Sections">
-          <button type="button" className={`topnav-tab ${view === 'home' ? 'is-active' : ''}`} onClick={() => { setSopOpen(false); onNavigate('home') }}>OPS</button>
+          <button type="button" className={`topnav-tab ${view === 'brand' ? 'is-active' : ''}`} onClick={() => { setSopOpen(false); onNavigate('brand') }}>OPS</button>
           <div className="topnav-tab-wrap" ref={sopRef}>
             <button
               type="button"

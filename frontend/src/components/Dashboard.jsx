@@ -6,6 +6,8 @@ import { TopNav } from './TopNav'
 import { ProfileMenu } from './ProfileMenu'
 import { Announcements } from './Announcements'
 import { WhatsHappening } from './WhatsHappening'
+import { BrandPicker } from './BrandPicker'
+import { BrandPage } from './BrandPage'
 import { AdminHub } from './AdminHub'
 import { ExecutiveOverview } from './ExecutiveOverview'
 import { AdminPanel } from './AdminPanel'
@@ -34,16 +36,27 @@ export function Dashboard() {
   const [nav, setNav] = useState({ stack: ['home'], pos: 0 })
   const [sopQuery, setSopQuery] = useState('')
   const [sopEditId, setSopEditId] = useState(null)
+  const [brand, setBrand] = useState(null)
   const view = nav.stack[nav.pos]
+  // The OPS / S.O.P. tabs belong to a brand: shown on its page and on SOP screens reached from it, never on home.
+  const inBrand = (() => {
+    for (let i = nav.pos; i >= 0; i--) {
+      if (nav.stack[i] === 'brand') return true
+      if (nav.stack[i] === 'home') return false
+    }
+    return false
+  })()
 
-  const canSwitchView = hasPermission('users.manage')
+  const canManageUsers = hasPermission('users.manage')
+  // Only Admin and Executive accounts get the role-preview header.
+  const canSwitchView = ['admin', 'executive'].includes(user?.role.key)
 
   useEffect(() => {
-    if (!canSwitchView) return
+    if (!canSwitchView && !canManageUsers) return
     fetchRoles()
       .then((data) => setRoles(data.roles))
       .catch(() => setRoles([]))
-  }, [canSwitchView])
+  }, [canSwitchView, canManageUsers])
 
   function navigate(next) {
     setNav((n) => (n.stack[n.pos] === next ? n : { stack: [...n.stack.slice(0, n.pos + 1), next], pos: n.pos + 1 }))
@@ -71,7 +84,8 @@ export function Dashboard() {
         badgeLabel={badgeSource ? badgeSource[0].toUpperCase() : null}
         onToggleMenu={() => setMenuOpen((open) => !open)}
         view={view}
-        showSop={hasPermission('sop.submit') || hasPermission('sop.approve')}
+        brandName={inBrand && brand ? [brand.label, brand.sub_label].filter(Boolean).join(' ') : null}
+        showSop={inBrand && (hasPermission('sop.submit') || hasPermission('sop.approve'))}
         showSopEdit={hasPermission('sop.submit')}
         onNavigate={(v) => { if (v === 'sop-edit') setSopEditId(null); navigate(v) }}
       />
@@ -81,7 +95,7 @@ export function Dashboard() {
           user={user}
           onClose={() => setMenuOpen(false)}
           onSignOut={logout}
-          canManageUsers={canSwitchView}
+          canManageUsers={canManageUsers}
           onOpenAdminPanel={() => setAdminPanelOpen(true)}
         />
       )}
@@ -96,6 +110,8 @@ export function Dashboard() {
             query={sopQuery}
             onClearQuery={() => setSopQuery('')}
           />
+        ) : view === 'brand' && brand ? (
+          <BrandPage key={brand.id} brand={brand} />
         ) : view === 'sop-edit' ? (
           <SopEditApp key={sopEditId ?? 'new'} onExit={() => navigate('home')} initialSopId={sopEditId} />
         ) : (
@@ -106,7 +122,7 @@ export function Dashboard() {
           </p>
         )}
 
-        {effectiveRoleKey === 'admin' || effectiveRoleKey === 'ownership' ? (
+        {effectiveRoleKey === 'admin' ? (
           <AdminHub user={user} />
         ) : effectiveRoleKey === 'executive' ? (
           <ExecutiveOverview user={user} />
@@ -138,6 +154,8 @@ export function Dashboard() {
             </section>
           </>
         )}
+
+        <BrandPicker onOpen={(b) => { setBrand(b); navigate('brand') }} />
           </>
         )}
       </main>

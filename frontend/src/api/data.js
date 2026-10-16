@@ -12,10 +12,18 @@ export function fetchHappenings() {
   return request('/api/happenings')
 }
 
-export function fetchPendingPushes() {
-  return request('/api/happenings/pending')
+export function fetchBrands() {
+  return request('/api/brands')
 }
 
-export function ackPush(id) {
-  return request(`/api/happenings/pushes/${id}/ack`, { method: 'POST' })
+export function fetchBrandNotices(brandId) {
+  return request(`/api/brands/${brandId}/notices`)
+}
+
+export function fetchOpsBoard(brandId, date) {
+  return request(`/api/brands/${brandId}/ops?date=${date}`)
+}
+
+export function saveOpsBoard(brandId, date, board) {
+  return request(`/api/brands/${brandId}/ops?date=${date}`, { method: 'PUT', body: JSON.stringify(board) })
 }

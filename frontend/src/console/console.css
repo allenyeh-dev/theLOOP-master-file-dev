@@ -22,11 +22,11 @@
 .cs-toolbar { display: flex; gap: 0.75rem; margin-bottom: 1rem; }
 .cs-search { width: 320px; }
 
-.cs-shell input, .cs-shell select, .cs-modal input, .cs-modal select {
+.cs-shell input, .cs-shell select, .cs-shell textarea, .cs-modal input, .cs-modal select, .cs-modal textarea {
   background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px;
   padding: 0.5rem 0.7rem; font: inherit; font-size: 0.9rem;
 }
-.cs-shell input:focus, .cs-shell select:focus, .cs-modal input:focus, .cs-modal select:focus { outline: none; border-color: var(--accent); }
+.cs-shell input:focus, .cs-shell select:focus, .cs-shell textarea:focus, .cs-modal input:focus, .cs-modal select:focus, .cs-modal textarea:focus { outline: none; border-color: var(--accent); }
 .cs-shell input:disabled, .cs-shell select:disabled, .cs-modal input:disabled, .cs-modal select:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .cs-btn { background: var(--panel-alt); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.95rem; font: inherit; font-size: 0.85rem; cursor: pointer; }

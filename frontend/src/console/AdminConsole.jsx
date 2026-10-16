@@ -5,13 +5,17 @@ import { BrandsPage } from './BrandsPage'
 import { RolesPage } from './RolesPage'
 import { PermissionsPage } from './PermissionsPage'
 import { EventsPage } from './EventsPage'
+import { AnnouncementsPage } from './AnnouncementsPage'
+import { BrandNoticesPage } from './BrandNoticesPage'
 import { SopDepartmentsPage } from './SopDepartmentsPage'
 import './console.css'
 
-const CONSOLE_ROLES = ['admin', 'ownership']
+const CONSOLE_ROLES = ['admin']
 const TABS = [
   { id: 'users', label: 'Users', Page: UsersPage },
   { id: 'brands', label: 'Brands', Page: BrandsPage },
+  { id: 'announcements', label: 'Announcements', Page: AnnouncementsPage },
+  { id: 'brand-notices', label: 'Brand Notices', Page: BrandNoticesPage },
   { id: 'events', label: 'Events', Page: EventsPage },
   { id: 'sop-departments', label: 'SOP Departments', Page: SopDepartmentsPage },
   { id: 'roles', label: 'Roles', Page: RolesPage },

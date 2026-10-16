@@ -48,7 +48,8 @@ function HappeningCard({ happening, onClick, className = '', tabIndex }) {
   )
 }
 
-export function WhatsHappening() {
+// brandId: only that brand's events (plus company-wide ones); omitted = everything the user can see.
+export function WhatsHappening({ brandId }) {
   const { t } = useLang()
   const [happenings, setHappenings] = useState([])
   const [error, setError] = useState(null)
@@ -60,10 +61,14 @@ export function WhatsHappening() {
 
   useEffect(() => {
     fetchHappenings()
-      .then((data) => setHappenings(data.happenings))
+      .then((data) =>
+        setHappenings(brandId ? data.happenings.filter((h) => h.all_brands || h.brand_id === brandId) : data.happenings)
+      )
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
-  }, [])
+  }, [brandId])
+
+  const closeModalRef = useRef(() => {})
 
   useEffect(() => {
     if (expandedIndex === null) return
@@ -71,7 +76,7 @@ export function WhatsHappening() {
     document.body.style.overflow = 'hidden'
 
     function handleKeyDown(e) {
-      if (e.key === 'Escape') setExpandedIndex(null)
+      if (e.key === 'Escape') closeModalRef.current()
       if (e.key === 'ArrowLeft') setExpandedIndex((i) => Math.max(0, i - 1))
       if (e.key === 'ArrowRight') setExpandedIndex((i) => Math.min(happenings.length - 1, i + 1))
     }
@@ -104,6 +109,18 @@ export function WhatsHappening() {
       setExpandedIndex((i) => Math.min(happenings.length - 1, i + 1))
     }
   }
+
+  const [closing, setClosing] = useState(false)
+  function closeModal() {
+    if (closing) return
+    setClosing(true)
+    setTimeout(() => {
+      setExpandedIndex(null)
+      setClosing(false)
+    }, 300)
+  }
+
+  closeModalRef.current = closeModal
 
   const expandedHappening = expandedIndex !== null ? happenings[expandedIndex] : null
 
@@ -138,7 +155,7 @@ export function WhatsHappening() {
       )}
 
       {expandedHappening && (
-        <div className="happening-modal-backdrop" onClick={() => setExpandedIndex(null)}>
+        <div className={`happening-modal-backdrop ${closing ? 'is-closing' : ''}`} onClick={closeModal}>
           <div
             className="happening-modal-body"
             onClick={(e) => e.stopPropagation()}
@@ -148,7 +165,7 @@ export function WhatsHappening() {
             <button
               type="button"
               className="happening-modal-close"
-              onClick={() => setExpandedIndex(null)}
+              onClick={closeModal}
               aria-label={t('Close')}
             >
               <CloseIcon />

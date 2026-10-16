@@ -142,6 +142,21 @@
   justify-content: center;
   padding: 1.5rem;
   z-index: 1000;
+  animation: happening-fade-in 0.3s ease both;
+}
+
+.happening-modal-backdrop.is-closing {
+  animation: happening-fade-out 0.3s ease both;
+}
+
+@keyframes happening-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes happening-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 .happening-modal-body {

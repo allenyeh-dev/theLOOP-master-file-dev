@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { requireAuth, requirePermission } from '../middleware/auth'
+import { requireAuth } from '../middleware/auth'
 import type { AuthUser } from '../lib/auth-db'
 
 type Bindings = { DB: D1Database }
@@ -8,13 +8,17 @@ type Variables = { user: AuthUser }
 export const roleRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
 // Returns previewable roles and their permission sets so that privileged
-// accounts (anyone with users.manage) can render a "view as" preview of
+// accounts (Admin and Executive, plus anyone with users.manage for the user-management panel) can render a "view as" preview of
 // another role's dashboard. This is a purely client-side rendering aid —
 // it does not change the caller's real session or grant any real access;
 // every protected route still authorizes against the actual logged-in user.
-roleRoutes.get('/', requireAuth, requirePermission('users.manage'), async (c) => {
+const PREVIEW_ROLES = ['admin', 'executive']
+
+roleRoutes.get('/', requireAuth, async (c) => {
+  const u = c.get('user')
+  if (!PREVIEW_ROLES.includes(u.role.key) && !u.permissions.includes('users.manage')) return c.json({ success: false, error: 'Forbidden' }, 403)
   const { results: roles } = await c.env.DB.prepare(
-    `SELECT id, key, label FROM roles WHERE key != 'ownership' ORDER BY id`
+    `SELECT id, key, label FROM roles ORDER BY id`
   ).all<{ id: number; key: string; label: string }>()
 
   const { results: rolePermissions } = await c.env.DB.prepare(
