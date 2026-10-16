@@ -141,7 +141,7 @@ export function Dashboard() {
 
             <WhatsHappening />
 
-            <section className="access-section">
+            <section className="access-section" hidden>
               <p className="section-label">{previewedRole ? t('{role} ACCESS', { role: previewedRole.label }) : t('YOUR ACCESS')}</p>
               <div className="permission-grid">
                 {Object.entries(PERMISSION_LABELS)
