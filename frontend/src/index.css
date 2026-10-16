@@ -36,3 +36,16 @@ h1, h2, p {
     padding-top: calc(env(safe-area-inset-top) + 10px);
   }
 }
+
+/* Installed PWA: hide the page scrollbar (scrolling still works). */
+@media (display-mode: standalone) {
+  html,
+  body {
+    scrollbar-width: none;
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none;
+  }
+}
