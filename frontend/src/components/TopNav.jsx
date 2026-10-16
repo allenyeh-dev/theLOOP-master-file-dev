@@ -16,10 +16,13 @@ export function TopNav({
   showSop,
   showSopEdit,
   brandName,
+  brandLogo,
 }) {
   const { t } = useLang()
   const [sopOpen, setSopOpen] = useState(false)
   const sopRef = useRef(null)
+  const [logoFailed, setLogoFailed] = useState(false)
+  useEffect(() => { setLogoFailed(false) }, [brandLogo])
   const sopActive = view === 'sop' || view === 'sop-edit'
 
   useEffect(() => {
@@ -67,7 +70,11 @@ export function TopNav({
 
       <div className="topnav-main">
         {brandName ? (
-          <span />
+          brandLogo && !logoFailed ? (
+            <button type="button" className="logo-brand-btn" aria-label={brandName} onClick={() => { setSopOpen(false); onNavigate('brand') }}>
+              <img className="logo-brand-img" src={brandLogo} alt="" onError={() => setLogoFailed(true)} />
+            </button>
+          ) : <span />
         ) : (
           <div className="logo">THE LOOP</div>
         )}

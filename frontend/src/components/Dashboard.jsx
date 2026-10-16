@@ -85,6 +85,7 @@ export function Dashboard() {
         onToggleMenu={() => setMenuOpen((open) => !open)}
         view={view}
         brandName={inBrand && brand ? [brand.label, brand.sub_label].filter(Boolean).join(' ') : null}
+        brandLogo={inBrand && brand ? brand.logo_url : null}
         showSop={inBrand && (hasPermission('sop.submit') || hasPermission('sop.approve'))}
         showSopEdit={hasPermission('sop.submit')}
         onNavigate={(v) => { if (v === 'sop-edit') setSopEditId(null); navigate(v) }}
