@@ -67,9 +67,7 @@ export function TopNav({
 
       <div className="topnav-main">
         {brandName ? (
-          <button type="button" className="logo logo--brand" onClick={() => { setSopOpen(false); onNavigate('brand') }}>
-            {brandName}
-          </button>
+          <span />
         ) : (
           <div className="logo">THE LOOP</div>
         )}
