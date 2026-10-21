@@ -117,7 +117,10 @@ export async function translateContent(env: AiEnv, content: SopContent, target: 
     'return_sop',
     CONTENT_SCHEMA
   )
-  return normalizeContent(input)
+  // The model only sees text, so carry each step's images over by position.
+  const out = normalizeContent(input)
+  out.steps = out.steps.map((st, i) => ({ ...st, images: content.steps[i]?.images ?? [] }))
+  return out
 }
 
 export interface AiReview {

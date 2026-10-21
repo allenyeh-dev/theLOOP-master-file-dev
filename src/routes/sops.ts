@@ -6,7 +6,7 @@ import { asLang, missingFields, normalizeContent, type Lang } from '../lib/sop-c
 import { AiUnavailableError, checkContent, structureText, translateContent, type AiEnv } from '../lib/sop-ai'
 import { enqueueEmail, flushOutbox, type MailEnv } from '../lib/mailer'
 
-type Bindings = MailEnv & AiEnv
+type Bindings = MailEnv & AiEnv & { DB: D1Database; SOP_IMAGES: R2Bucket }
 type Variables = { user: AuthUser }
 
 export const sopRoutes = new Hono<{ Bindings: Bindings; Variables: Variables }>()
@@ -23,6 +23,40 @@ const isAdmin = (u: AuthUser) => CONSOLE_ROLE_KEYS.includes(u.role.key)
 // admin role, so an admin-edited SOP can still be completed (they still cannot sign the manager/GM steps).
 const selfOk = (u: AuthUser, editorId: number, stepRoleKey?: string) =>
   editorId !== u.id || (isAdmin(u) && stepRoleKey === 'admin')
+
+// ---------- step images ----------
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const MAX_IMAGE_BYTES = 1_500_000
+
+const imageKey = (id: number) => `sop-images/${id}`
+
+// Bytes live in R2; sop_images keeps the id, type, size and uploader.
+sopRoutes.post('/images', requirePermission('sop.submit'), async (c) => {
+  const mime = (c.req.header('content-type') ?? '').split(';')[0].trim()
+  if (!IMAGE_TYPES.includes(mime)) return fail(c, bi('只支援 JPG / PNG / WebP 圖片', 'Only JPG, PNG or WebP images are supported'))
+  const buf = await c.req.arrayBuffer()
+  if (buf.byteLength === 0) return fail(c, bi('沒有收到圖片', 'No image received'))
+  if (buf.byteLength > MAX_IMAGE_BYTES) return fail(c, bi('圖片太大（上限 1.5 MB）', 'Image too large (max 1.5 MB)'), 413)
+  const res = await c.env.DB.prepare(`INSERT INTO sop_images (mime, size, created_by) VALUES (?, ?, ?)`)
+    .bind(mime, buf.byteLength, c.get('user').id)
+    .run()
+  const id = res.meta.last_row_id
+  try {
+    await c.env.SOP_IMAGES.put(imageKey(id), buf, { httpMetadata: { contentType: mime } })
+  } catch {
+    await c.env.DB.prepare(`DELETE FROM sop_images WHERE id = ?`).bind(id).run()
+    return fail(c, bi('圖片儲存失敗，請再試一次', 'Could not store the image — please try again'), 502)
+  }
+  return c.json({ success: true, id })
+})
+
+sopRoutes.get('/images/:id', async (c) => {
+  const id = parseId(c.req.param('id'))
+  const row = id && (await c.env.DB.prepare(`SELECT mime FROM sop_images WHERE id = ?`).bind(id).first<{ mime: string }>())
+  const obj = row && id ? await c.env.SOP_IMAGES.get(imageKey(id)) : null
+  if (!row || !obj) return c.json({ success: false, error: 'Not found' }, 404)
+  return new Response(obj.body, { headers: { 'content-type': row.mime, 'cache-control': 'private, max-age=31536000, immutable' } })
+})
 
 // ---------- categories (any submitter may add one) ----------
 sopRoutes.get('/categories', async (c) => {
@@ -224,13 +258,22 @@ async function brandsOf(db: D1Database, sopIds: number[]) {
 }
 
 // ---------- list ----------
-// scope=published (default) | mine | pending
+// scope=published (default) | mine | pending | all (admin only)
 sopRoutes.get('/', async (c) => {
   const user = c.get('user')
   const scope = c.req.query('scope') ?? 'published'
   let rows: VersionRow[]
 
-  if (scope === 'mine') {
+  if (scope === 'all') {
+    // Admin console: every SOP regardless of brand/department, showing its latest version.
+    if (!isAdmin(user)) return fail(c, 'Forbidden', 403)
+    const r = await c.env.DB.prepare(
+      `${LATEST_SELECT}
+       WHERE v.version_no = (SELECT MAX(version_no) FROM sop_versions WHERE sop_id = s.id)
+       ORDER BY s.id DESC`
+    ).all<VersionRow>()
+    rows = r.results
+  } else if (scope === 'mine') {
     const r = await c.env.DB.prepare(
       `${LATEST_SELECT}
        WHERE (s.created_by = ? OR COALESCE(v.edited_by, s.created_by) = ?)
@@ -594,6 +637,55 @@ sopRoutes.post('/:id/flag', async (c) => {
   return c.json({ success: true })
 })
 
+// Make `row` the live version. Assigns the SOP code (e.g. SF-BOH-002: brand code or ALL, department,
+// running number) on first publish only.
+function publishStatements(db: D1Database, row: VersionRow, brands: { id: number; code?: string | null }[]) {
+  return [
+    db.prepare(`UPDATE sop_versions SET status = 'superseded' WHERE sop_id = ? AND status = 'published'`).bind(row.sop_id),
+    db.prepare(`UPDATE sop_versions SET status = 'published', published_at = datetime('now') WHERE id = ?`).bind(row.id),
+    db.prepare(`UPDATE sops SET published_version_id = ? WHERE id = ?`).bind(row.id, row.sop_id),
+    db.prepare(
+      `UPDATE sops SET code_prefix = ?1,
+         code_seq = (SELECT COALESCE(MAX(code_seq), 0) + 1 FROM sops WHERE code_prefix = ?1),
+         code = ?1 || '-' || printf('%03d', (SELECT COALESCE(MAX(code_seq), 0) + 1 FROM sops WHERE code_prefix = ?1))
+       WHERE id = ?2 AND code IS NULL`
+    ).bind(codePrefix(brands as any, row.dept_key), row.sop_id),
+  ]
+}
+
+// Admin upload path: publish a draft immediately, skipping the approval chain.
+sopRoutes.post('/:id/publish', async (c) => {
+  const id = parseId(c.req.param('id') ?? '')
+  if (!id) return fail(c, 'Invalid id')
+  const user = c.get('user')
+  if (!isAdmin(user) || !user.permissions.includes('sop.submit')) return fail(c, 'Forbidden', 403)
+  const found = await loadSop(c, id)
+  if (!found || !found.canEdit) return fail(c, 'Not found', 404)
+  const { row, brands } = found
+  if (row.status !== 'draft' && row.status !== 'rejected') return fail(c, bi('目前狀態不能發布', 'This SOP cannot be published right now'), 409)
+
+  const content = normalizeContent(JSON.parse(row.content_json))
+  const missing = missingFields(content)
+  if (!row.department_id) missing.push(['部門', 'department'])
+  if (missing.length) return fail(c, bi(`還缺：${missing.map((m) => m[0]).join('、')}`, `Missing: ${missing.map((m) => m[1]).join(', ')}`))
+
+  // Same as submit: translate when no other-language version exists; a failure never blocks publishing.
+  let alt = row.content_alt_json ? normalizeContent(JSON.parse(row.content_alt_json)) : null
+  if (!alt) {
+    try {
+      alt = await translateContent(c.env, content, row.lang === 'en' ? 'zh' : 'en')
+    } catch {
+      alt = null
+    }
+  }
+  await c.env.DB.batch([
+    c.env.DB.prepare(`UPDATE sop_versions SET title_alt = ?, content_alt_json = ?, submitted_by = ?, edited_by = ?, submitted_at = datetime('now') WHERE id = ?`)
+      .bind(alt?.title ?? null, alt ? JSON.stringify(alt) : null, user.id, user.id, row.id),
+    ...publishStatements(c.env.DB, row, brands as any),
+  ])
+  return c.json({ success: true, translated: Boolean(alt) })
+})
+
 // ---------- decide ----------
 async function decide(c: any, decision: 'approved' | 'rejected') {
   const id = parseId(c.req.param('id') ?? '')
@@ -635,18 +727,7 @@ async function decide(c: any, decision: 'approved' | 'rejected') {
       const emails = await approverEmails(c.env.DB, next.role_id, brands.map((b: any) => b.id), row.editor_id)
       emails.forEach((to) => notify(to, `[THE LOOP] 待簽核 SOP / SOP awaiting approval: ${row.title}`, `SOP「${row.title}」已通過上一關，請登入系統簽核。\nThe SOP "${row.title}" passed the previous step. Please sign in to review it.`))
     } else {
-      stmts.push(
-        c.env.DB.prepare(`UPDATE sop_versions SET status = 'superseded' WHERE sop_id = ? AND status = 'published'`).bind(row.sop_id),
-        c.env.DB.prepare(`UPDATE sop_versions SET status = 'published', published_at = datetime('now') WHERE id = ?`).bind(row.id),
-        c.env.DB.prepare(`UPDATE sops SET published_version_id = ? WHERE id = ?`).bind(row.id, row.sop_id),
-        // First publish only: SF-BOH-002 style code (brand code or ALL, department, running number).
-        c.env.DB.prepare(
-          `UPDATE sops SET code_prefix = ?1,
-             code_seq = (SELECT COALESCE(MAX(code_seq), 0) + 1 FROM sops WHERE code_prefix = ?1),
-             code = ?1 || '-' || printf('%03d', (SELECT COALESCE(MAX(code_seq), 0) + 1 FROM sops WHERE code_prefix = ?1))
-           WHERE id = ?2 AND code IS NULL`
-        ).bind(codePrefix(brands, row.dept_key), row.sop_id)
-      )
+      stmts.push(...publishStatements(c.env.DB, row, brands))
       notify(author?.email, `[THE LOOP] SOP 已發布 / SOP published: ${row.title}`, `你的 SOP「${row.title}」已全部通過並發布。\nYour SOP "${row.title}" was fully approved and published.`)
     }
   }

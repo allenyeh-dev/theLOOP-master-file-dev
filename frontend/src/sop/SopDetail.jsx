@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { sopApi } from '../api/sops'
+import { sopApi, sopImageUrl } from '../api/sops'
 import { useAuth } from '../context/AuthContext'
 import { useLang } from '../i18n/LanguageContext'
 import { localized } from './sopLang'
@@ -95,23 +95,11 @@ export function SopDetail({ id, onBack, onChanged }) {
       </button>
       {fullOpen && (
         <div className="sop-full">
-          <ol>{c.steps?.map((s, i) => <li key={i}>{s.action}{s.caution && <em>{t('（注意：{c}）', { c: s.caution })}</em>}</li>)}</ol>
+          <ol>{c.steps?.map((s, i) => <li key={i}>{s.action}{s.caution && <em>{t('（注意：{c}）', { c: s.caution })}</em>}
+            {s.images?.length > 0 && <div className="sop-imgs">{s.images.map((id) => <a key={id} href={sopImageUrl(id)} target="_blank" rel="noreferrer"><img src={sopImageUrl(id)} alt="" loading="lazy" /></a>)}</div>}
+          </li>)}</ol>
           {c.mistakes && <><h3 className="sop-label">{t('常見錯誤')}</h3><p>{c.mistakes}</p></>}
         </div>
-      )}
-
-      {sop.approvals.length > 0 && (
-        <Block title={t('簽核進度')}>
-          <ul className="sop-timeline">
-            {sop.approvals.map((a) => (
-              <li key={a.step_no}>
-                {t('第 {n} 關 · {role}：', { n: a.step_no, role: a.role_label })}
-                {a.decision === 'approved' ? t(' ✓ {name} 通過', { name: a.approver_name }) : a.decision === 'rejected' ? t(' ✗ {name} 退回', { name: a.approver_name }) : t(' 等待中')}
-                {a.comment && <em>{lang === 'zh' ? `「${a.comment}」` : `“${a.comment}”`}</em>}
-              </li>
-            ))}
-          </ul>
-        </Block>
       )}
 
       {sop.ai_review && <AiReview review={sop.ai_review} />}
@@ -138,10 +126,6 @@ export function SopDetail({ id, onBack, onChanged }) {
 
 function Meta({ label, value }) {
   return <div className="sop-meta"><span>{label}</span><strong>{value}</strong></div>
-}
-
-function Block({ title, children }) {
-  return <div className="sop-section"><strong>{title}</strong><div>{children}</div></div>
 }
 
 function AiReview({ review }) {

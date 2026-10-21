@@ -14,6 +14,7 @@ import type { AuthUser } from './lib/auth-db'
 
 type Bindings = {
   DB: D1Database
+  SOP_IMAGES: R2Bucket
   ANTHROPIC_API_KEY?: string
   ANTHROPIC_WORKSPACE_ID?: string
   SOP_AI_MODEL?: string

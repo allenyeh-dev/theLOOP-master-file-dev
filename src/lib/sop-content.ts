@@ -4,10 +4,12 @@ export interface SopContent {
   purpose: string
   audience: string
   tools: string
-  steps: { action: string; caution: string }[]
+  steps: { action: string; caution: string; images: number[] }[]
   mistakes: string
   effective_date: string
 }
+
+export const MAX_STEP_IMAGES = 4
 
 const s = (v: unknown, max = 2000) => (typeof v === 'string' ? v.trim().slice(0, max) : '')
 
@@ -23,9 +25,12 @@ export function normalizeContent(raw: unknown): SopContent {
       .slice(0, 100)
       .map((x) => {
         const o = (x && typeof x === 'object' ? x : {}) as Record<string, unknown>
-        return { action: s(o.action, 4000), caution: s(o.caution, 1000) }
+        const images = Array.isArray(o.images)
+          ? o.images.filter((n): n is number => Number.isInteger(n) && n > 0).slice(0, MAX_STEP_IMAGES)
+          : []
+        return { action: s(o.action, 4000), caution: s(o.caution, 1000), images }
       })
-      .filter((x) => x.action || x.caution),
+      .filter((x) => x.action || x.caution || x.images.length),
     mistakes: s(r.mistakes),
     effective_date: s(r.effective_date, 20),
   }

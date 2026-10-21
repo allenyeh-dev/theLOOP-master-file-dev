@@ -8,8 +8,8 @@ import { EventsPage } from './EventsPage'
 import { AnnouncementsPage } from './AnnouncementsPage'
 import { BrandNoticesPage } from './BrandNoticesPage'
 import { SopDepartmentsPage } from './SopDepartmentsPage'
-import { SopReadsPage } from './SopReadsPage'
 import { SopUploadPage } from './SopUploadPage'
+import { SopManagePage } from './SopManagePage'
 import './console.css'
 
 const CONSOLE_ROLES = ['admin']
@@ -19,8 +19,8 @@ const TABS = [
   { id: 'announcements', label: 'Announcements', Page: AnnouncementsPage },
   { id: 'brand-notices', label: 'Brand Notices', Page: BrandNoticesPage },
   { id: 'events', label: 'Events', Page: EventsPage },
-  { id: 'sop-reads', label: 'Readership', group: 'SOP', Page: SopReadsPage },
   { id: 'sop-upload', label: 'Upload', group: 'SOP', Page: SopUploadPage },
+  { id: 'sop-manage', label: 'Manage', group: 'SOP', Page: SopManagePage },
   { id: 'sop-departments', label: 'Departments', group: 'SOP', Page: SopDepartmentsPage },
   { id: 'roles', label: 'Roles', Page: RolesPage },
   { id: 'permissions', label: 'Permissions', Page: PermissionsPage },

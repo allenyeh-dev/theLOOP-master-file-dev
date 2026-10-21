@@ -15,7 +15,13 @@
       "migrations_dir": "migrations"
     }
   ],
-   "assets": {
+  "r2_buckets": [
+    {
+      "binding": "SOP_IMAGES",
+      "bucket_name": "theloop-master-file"
+    }
+  ],
+  "assets": {
     "directory": "./frontend/dist",
     "binding": "ASSETS",
     "run_worker_first": ["/api/*"],
