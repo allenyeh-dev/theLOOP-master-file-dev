@@ -25,6 +25,16 @@ const PERMISSION_LABELS = {
   'users.manage': 'User & Role Management',
 }
 
+const lastBrandKey = (userId) => `loop:lastBrand:${userId}`
+
+function readLastBrand(userId) {
+  try {
+    return JSON.parse(localStorage.getItem(lastBrandKey(userId)))
+  } catch {
+    return null
+  }
+}
+
 export function Dashboard() {
   const { user, logout, hasPermission } = useAuth()
   const { t } = useLang()
@@ -35,6 +45,7 @@ export function Dashboard() {
   const [nav, setNav] = useState({ stack: ['home'], pos: 0 })
   const [sopQuery, setSopQuery] = useState('')
   const [brand, setBrand] = useState(null)
+  const [lastBrand, setLastBrand] = useState(() => (user ? readLastBrand(user.id) : null))
   const view = nav.stack[nav.pos]
   const [footerHidden, setFooterHidden] = useState(false)
 
@@ -70,6 +81,17 @@ export function Dashboard() {
       .then((data) => setRoles(data.roles))
       .catch(() => setRoles([]))
   }, [canSwitchView, canManageUsers])
+
+  function openBrand(b) {
+    setBrand(b)
+    setLastBrand(b)
+    try {
+      localStorage.setItem(lastBrandKey(user.id), JSON.stringify(b))
+    } catch {
+      // storage unavailable; the shortcut just won't persist
+    }
+    navigate('brand')
+  }
 
   function navigate(next) {
     setNav((n) => (n.stack[n.pos] === next ? n : { stack: [...n.stack.slice(0, n.pos + 1), next], pos: n.pos + 1 }))
@@ -138,9 +160,25 @@ export function Dashboard() {
         ) : (
           <>
             <section className="welcome-panel">
-              <p className="welcome-label">{t('WELCOME BACK')}</p>
-              <h1 className="welcome-name">{user.name}</h1>
-              <p className="welcome-title">{user.title || user.role.label}</p>
+              <div className="welcome-text">
+                <p className="welcome-label">{t('WELCOME BACK')}</p>
+                <h1 className="welcome-name">{user.name}</h1>
+                <p className="welcome-title">{user.title || user.role.label}</p>
+              </div>
+              {lastBrand && (
+                <button
+                  type="button"
+                  className="welcome-brand"
+                  aria-label={[lastBrand.label, lastBrand.sub_label].filter(Boolean).join(' ')}
+                  onClick={() => openBrand(lastBrand)}
+                >
+                  {lastBrand.logo_url ? (
+                    <img src={lastBrand.logo_url} alt="" />
+                  ) : (
+                    <span>{lastBrand.label}</span>
+                  )}
+                </button>
+              )}
             </section>
 
             <Announcements />
@@ -164,7 +202,7 @@ export function Dashboard() {
           </>
         )}
 
-        <BrandPicker onOpen={(b) => { setBrand(b); navigate('brand') }} />
+        <BrandPicker onOpen={openBrand} />
           </>
         )}
       </main>

@@ -11,7 +11,33 @@
 }
 
 .welcome-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   margin-bottom: 1.5rem;
+}
+
+.welcome-brand {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  border-radius: 12px;
+  color: var(--text);
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.welcome-brand img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 
 .welcome-label {

@@ -3,10 +3,9 @@ import { fetchBrandNotices } from '../api/data'
 import { useLang } from '../i18n/LanguageContext'
 import { AnnouncementCard } from './Announcements'
 import { OpsBoard } from './OpsBoard'
-import { WhatsHappening } from './WhatsHappening'
 import './BrandPicker.css'
 
-// A brand's own page (the OPS tab): its notices (always listed, re-readable), the daily Ops Board and its events.
+// A brand's own page (the OPS tab): its notices (always listed, re-readable), and the daily Ops Board.
 export function BrandPage({ brand }) {
   const { t } = useLang()
   const [notices, setNotices] = useState([])
@@ -33,8 +32,6 @@ export function BrandPage({ brand }) {
       </section>
 
       <OpsBoard brand={brand} />
-
-      <WhatsHappening brandId={brand.id} />
     </div>
   )
 }
