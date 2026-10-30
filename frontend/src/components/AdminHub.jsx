@@ -8,6 +8,7 @@ import { CoverCountCard } from './CoverCountCard'
 import { DateStepper } from './DateStepper'
 import { Toast } from './Toast'
 import { WhatsHappening } from './WhatsHappening'
+import { PlaybookCard } from './PlaybookCard'
 import { AlertTriangleIcon, ClipboardIcon, LockIcon, UploadIcon } from './icons'
 import './AdminHub.css'
 
@@ -18,7 +19,7 @@ const ICONS = {
   upload: UploadIcon,
 }
 
-export function AdminHub({ user }) {
+export function AdminHub({ user, onOpenPlaybook }) {
   const { lang, t } = useLang()
   const [dateOffset, setDateOffset] = useState(0)
   const [toastMsg, setToastMsg] = useState(null)
@@ -90,6 +91,8 @@ export function AdminHub({ user }) {
       </div>
 
       <WhatsHappening />
+
+      <PlaybookCard onOpen={onOpenPlaybook} />
 
       <div className="ov-section-label">{t('Cover Count')}</div>
       <CoverCountCard />

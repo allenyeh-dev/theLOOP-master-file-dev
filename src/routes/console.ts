@@ -1015,3 +1015,77 @@ consoleRoutes.delete('/brand-notices/:id', async (c) => {
   if (!res.meta.changes) return fail(c, 'Not found', 404)
   return c.json({ success: true })
 })
+
+/* ------------------------- Playbook ------------------------- */
+
+const PLAYBOOK_KINDS = ['heading', 'card', 'behavior']
+const optText = (v: unknown, max: number) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null)
+
+function parseSection(body: any) {
+  const kind = body?.kind
+  if (!PLAYBOOK_KINDS.includes(kind)) return 'Invalid kind'
+  const title = str(body.title)
+  const text = str(body.body)
+  if (kind !== 'card' && !title) return 'Title is required'
+  if (kind !== 'heading' && !text) return 'Body is required'
+  return {
+    kind,
+    title: title.slice(0, 120),
+    title_zh: optText(body.title_zh, 120),
+    body: kind === 'heading' ? '' : text.slice(0, 4000),
+    body_zh: kind === 'heading' ? null : optText(body.body_zh, 4000),
+    good: kind === 'behavior' ? optText(body.good, 400) : null,
+    good_zh: kind === 'behavior' ? optText(body.good_zh, 400) : null,
+    miss: kind === 'behavior' ? optText(body.miss, 400) : null,
+    miss_zh: kind === 'behavior' ? optText(body.miss_zh, 400) : null,
+  }
+}
+
+consoleRoutes.get('/playbook', async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT s.id, s.kind, s.title, s.title_zh, s.body, s.body_zh, s.good, s.good_zh, s.miss, s.miss_zh,
+            (SELECT COUNT(*) FROM playbook_reads r WHERE r.section_id = s.id) AS read_count
+     FROM playbook_sections s ORDER BY s.sort_order, s.id`
+  ).all()
+  const { results: users } = await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM users WHERE is_active = 1`).all<{ n: number }>()
+  return c.json({ success: true, sections: results, user_count: users[0]?.n ?? 0 })
+})
+
+consoleRoutes.post('/playbook', async (c) => {
+  const s = parseSection(await c.req.json().catch(() => null))
+  if (typeof s === 'string') return fail(c, s)
+  const res = await c.env.DB.prepare(
+    `INSERT INTO playbook_sections (kind, title, title_zh, body, body_zh, good, good_zh, miss, miss_zh, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM playbook_sections))`
+  ).bind(s.kind, s.title, s.title_zh, s.body, s.body_zh, s.good, s.good_zh, s.miss, s.miss_zh).run()
+  return c.json({ success: true, id: res.meta.last_row_id }, 201)
+})
+
+// Body: { ids: number[] } — the full list in its new order.
+consoleRoutes.put('/playbook/order', async (c) => {
+  const body = await c.req.json().catch(() => null)
+  const ids = body?.ids
+  if (!Array.isArray(ids) || !ids.every((n) => Number.isInteger(n))) return fail(c, 'Invalid order')
+  await c.env.DB.batch(ids.map((id: number, i: number) => c.env.DB.prepare(`UPDATE playbook_sections SET sort_order = ? WHERE id = ?`).bind(i, id)))
+  return c.json({ success: true })
+})
+
+consoleRoutes.patch('/playbook/:id', async (c) => {
+  const id = parseId(c.req.param('id'))
+  if (!id) return fail(c, 'Invalid id')
+  const s = parseSection(await c.req.json().catch(() => null))
+  if (typeof s === 'string') return fail(c, s)
+  const res = await c.env.DB.prepare(
+    `UPDATE playbook_sections SET kind = ?, title = ?, title_zh = ?, body = ?, body_zh = ?, good = ?, good_zh = ?, miss = ?, miss_zh = ? WHERE id = ?`
+  ).bind(s.kind, s.title, s.title_zh, s.body, s.body_zh, s.good, s.good_zh, s.miss, s.miss_zh, id).run()
+  if (!res.meta.changes) return fail(c, 'Not found', 404)
+  return c.json({ success: true })
+})
+
+consoleRoutes.delete('/playbook/:id', async (c) => {
+  const id = parseId(c.req.param('id'))
+  if (!id) return fail(c, 'Invalid id')
+  const res = await c.env.DB.prepare(`DELETE FROM playbook_sections WHERE id = ?`).bind(id).run()
+  if (!res.meta.changes) return fail(c, 'Not found', 404)
+  return c.json({ success: true })
+})

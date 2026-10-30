@@ -9,6 +9,7 @@ import { adminUserRoutes } from './routes/admin-users'
 import { consoleRoutes } from './routes/console'
 import { sopRoutes } from './routes/sops'
 import { pushRoutes } from './routes/push'
+import { playbookRoutes } from './routes/playbook'
 import { requireAuth } from './middleware/auth'
 import type { AuthUser } from './lib/auth-db'
 
@@ -73,6 +74,7 @@ app.route('/api/admin/users', adminUserRoutes)
 app.route('/api/console', consoleRoutes)
 app.route('/api/sops', sopRoutes)
 app.route('/api/push', pushRoutes)
+app.route('/api/playbook', playbookRoutes)
 
 // Any authenticated account can see the staff directory, limited to people who share a brand with them.
 app.get('/api/staff', requireAuth, async (c) => {

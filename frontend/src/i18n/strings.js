@@ -46,6 +46,16 @@ export const zh = {
   'Kitchen Operations': '廚房營運',
   'Executive Reports': '高階報表',
   'User & Role Management': '使用者與角色管理',
+  // playbook
+  'All Venues · Every Role': '所有場館 · 所有職位',
+  'THE PLAYBOOK': '教戰手冊',
+  'How we treat each other, and every guest.': '我們如何對待彼此，以及每一位賓客。',
+  'Open the Playbook →': '開啟教戰手冊 →',
+  'Hospitality Standard — All Venues': '待客標準 — 所有場館',
+  '{n} of {total} sections read': '已讀 {n} / {total} 個區塊',
+  'Mark as read': '標示為已讀',
+  Good: '正確示範',
+  Miss: '常見失誤',
   // announcements / happenings
   ANNOUNCEMENTS: '公告',
   'Loading…': '載入中…',

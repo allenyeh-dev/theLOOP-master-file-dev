@@ -8,9 +8,10 @@ import { CoverCountCard } from './CoverCountCard'
 import { DateStepper } from './DateStepper'
 import { Toast } from './Toast'
 import { ClipboardIcon } from './icons'
+import { PlaybookCard } from './PlaybookCard'
 import './ExecutiveOverview.css'
 
-export function ExecutiveOverview({ user }) {
+export function ExecutiveOverview({ user, onOpenPlaybook }) {
   const { lang, t } = useLang()
   const [dateOffset, setDateOffset] = useState(0)
   const [toastMsg, setToastMsg] = useState(null)
@@ -61,6 +62,8 @@ export function ExecutiveOverview({ user }) {
         <div className="playbook-cta-sub">{t('Live 86 list, specials, shift notes, and reservations across every outlet.')}</div>
         <div className="playbook-cta-btn">{t('Open Ops Board →')}</div>
       </button>
+
+      <PlaybookCard onOpen={onOpenPlaybook} />
 
       <div className="ov-section-label">{t('Cover Count')}</div>
       <CoverCountCard />

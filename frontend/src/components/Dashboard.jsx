@@ -14,6 +14,8 @@ import { AdminPanel } from './AdminPanel'
 import { SopApp } from '../sop/SopApp'
 import { OverviewFooter } from './OverviewFooter'
 import { SopShortcut } from './SopShortcut'
+import { PlaybookCard } from './PlaybookCard'
+import { PlaybookPage } from './PlaybookPage'
 import './Dashboard.css'
 
 const PERMISSION_LABELS = {
@@ -143,6 +145,8 @@ export function Dashboard() {
             query={sopQuery}
             onClearQuery={() => setSopQuery('')}
           />
+        ) : view === 'playbook' ? (
+          <PlaybookPage />
         ) : view === 'brand' && brand ? (
           <BrandPage key={brand.id} brand={brand} />
         ) : (
@@ -154,9 +158,9 @@ export function Dashboard() {
         )}
 
         {effectiveRoleKey === 'admin' ? (
-          <AdminHub user={user} />
+          <AdminHub user={user} onOpenPlaybook={() => navigate('playbook')} />
         ) : effectiveRoleKey === 'executive' ? (
-          <ExecutiveOverview user={user} />
+          <ExecutiveOverview user={user} onOpenPlaybook={() => navigate('playbook')} />
         ) : (
           <>
             <section className="welcome-panel">
@@ -186,6 +190,8 @@ export function Dashboard() {
             {(hasPermission('sop.submit') || hasPermission('sop.approve')) && <SopShortcut user={user} onOpen={() => navigate('sop')} />}
 
             <WhatsHappening />
+
+            <PlaybookCard onOpen={() => navigate('playbook')} />
 
             <section className="access-section" hidden>
               <p className="section-label">{previewedRole ? t('{role} ACCESS', { role: previewedRole.label }) : t('YOUR ACCESS')}</p>

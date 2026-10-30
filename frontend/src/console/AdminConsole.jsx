@@ -8,6 +8,7 @@ import { EventsPage } from './EventsPage'
 import { AnnouncementsPage } from './AnnouncementsPage'
 import { BrandNoticesPage } from './BrandNoticesPage'
 import { SopManagePage } from './SopManagePage'
+import { PlaybookPage } from './PlaybookPage'
 import './console.css'
 
 const CONSOLE_ROLES = ['admin']
@@ -18,6 +19,7 @@ const TABS = [
   { id: 'brand-notices', label: 'Brand Notices', Page: BrandNoticesPage },
   { id: 'events', label: 'Events', Page: EventsPage },
   { id: 'sop', label: 'SOP', Page: SopManagePage },
+  { id: 'playbook', label: 'Playbook', Page: PlaybookPage },
   { id: 'roles', label: 'Roles', Page: RolesPage },
   { id: 'permissions', label: 'Permissions', Page: PermissionsPage },
 ]

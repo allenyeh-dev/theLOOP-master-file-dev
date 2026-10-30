@@ -43,3 +43,11 @@ export function fetchOpsBoard(brandId, date) {
 export function saveOpsBoard(brandId, date, board) {
   return request(`/api/brands/${brandId}/ops?date=${date}`, { method: 'PUT', body: JSON.stringify(board) })
 }
+
+export function fetchPlaybook() {
+  return request('/api/playbook')
+}
+
+export function setPlaybookRead(id, read) {
+  return request(`/api/playbook/${id}/read`, { method: 'PUT', body: JSON.stringify({ read }) })
+}
