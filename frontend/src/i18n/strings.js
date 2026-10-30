@@ -209,6 +209,8 @@ export const en = {
   品牌: 'Brands',
   類別: 'Category',
   目的: 'Purpose',
+  關鍵準則: 'Key standards',
+  提交備註: 'Submission notes',
   步驟: 'Steps',
   常見錯誤: 'Common mistakes',
   '搜尋：{q}': 'Search: {q}',

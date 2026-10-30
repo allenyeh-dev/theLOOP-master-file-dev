@@ -18,6 +18,11 @@ export const consoleApi = {
   updateSopDepartment: (id, p) => request(`/api/console/sop-departments/${id}`, json('PATCH', p)),
   deleteSopDepartment: (id) => request(`/api/console/sop-departments/${id}`, { method: 'DELETE' }),
 
+  listSopCategories: () => request('/api/console/sop-categories'),
+  createSopCategory: (p) => request('/api/console/sop-categories', json('POST', p)),
+  updateSopCategory: (id, p) => request(`/api/console/sop-categories/${id}`, json('PATCH', p)),
+  deleteSopCategory: (id) => request(`/api/console/sop-categories/${id}`, { method: 'DELETE' }),
+
   sopReads: () => request('/api/console/sop-reads'),
 
   listHappenings: () => request('/api/console/happenings'),

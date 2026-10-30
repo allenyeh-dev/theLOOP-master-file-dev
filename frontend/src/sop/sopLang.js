@@ -10,7 +10,8 @@ export function localized(sop, lang) {
 export function snap(c) {
   const t = (v) => (v ?? '').trim()
   return JSON.stringify([
-    t(c.title), t(c.purpose), t(c.audience), t(c.tools), t(c.mistakes),
+    t(c.title), t(c.purpose), t(c.audience), t(c.tools), t(c.mistakes), t(c.notes),
+    (c.standards ?? []).map(t).filter(Boolean),
     (c.steps ?? []).filter((s) => t(s.action) || t(s.caution)).map((s) => [t(s.action), t(s.caution)]),
   ])
 }

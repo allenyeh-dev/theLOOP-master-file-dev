@@ -12,7 +12,7 @@ const ADMIN_ROLES = ['admin']
 // Search across both language versions of a SOP.
 function matches(s, q) {
   const parts = [s.code, s.content, s.content_alt].flatMap((c) =>
-    !c ? [] : typeof c === 'string' ? [c] : [c.title, c.purpose, c.tools, c.mistakes, ...(c.steps ?? []).flatMap((st) => [st.action, st.caution])]
+    !c ? [] : typeof c === 'string' ? [c] : [c.title, c.purpose, c.tools, ...(c.standards ?? []), c.mistakes, c.notes, ...(c.steps ?? []).flatMap((st) => [st.action, st.caution])]
   )
   return parts.some((p) => p && p.toLowerCase().includes(q))
 }

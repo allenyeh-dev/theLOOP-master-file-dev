@@ -7,8 +7,6 @@ import { PermissionsPage } from './PermissionsPage'
 import { EventsPage } from './EventsPage'
 import { AnnouncementsPage } from './AnnouncementsPage'
 import { BrandNoticesPage } from './BrandNoticesPage'
-import { SopDepartmentsPage } from './SopDepartmentsPage'
-import { SopUploadPage } from './SopUploadPage'
 import { SopManagePage } from './SopManagePage'
 import './console.css'
 
@@ -19,21 +17,10 @@ const TABS = [
   { id: 'announcements', label: 'Announcements', Page: AnnouncementsPage },
   { id: 'brand-notices', label: 'Brand Notices', Page: BrandNoticesPage },
   { id: 'events', label: 'Events', Page: EventsPage },
-  { id: 'sop-upload', label: 'Upload', group: 'SOP', Page: SopUploadPage },
-  { id: 'sop-manage', label: 'Manage', group: 'SOP', Page: SopManagePage },
-  { id: 'sop-departments', label: 'Departments', group: 'SOP', Page: SopDepartmentsPage },
+  { id: 'sop', label: 'SOP', Page: SopManagePage },
   { id: 'roles', label: 'Roles', Page: RolesPage },
   { id: 'permissions', label: 'Permissions', Page: PermissionsPage },
 ]
-
-// Sidebar entries: tabs sharing a `group` collapse into one dropdown entry placed where the first one sits.
-const NAV = TABS.reduce((nav, t) => {
-  if (!t.group) return [...nav, { tab: t }]
-  const existing = nav.find((n) => n.group === t.group)
-  if (existing) existing.tabs.push(t)
-  else nav.push({ group: t.group, tabs: [t] })
-  return nav
-}, [])
 
 const tabFromHash = () => TABS.find((t) => `#${t.id}` === window.location.hash)?.id ?? 'users'
 
@@ -44,7 +31,7 @@ export function isConsolePath() {
 export function AdminConsole() {
   const { user, logout } = useAuth()
   const [tab, setTab] = useState(tabFromHash)
-  const [openGroup, setOpenGroup] = useState(null)
+  const [pageKey, setPageKey] = useState(0)
 
   useEffect(() => {
     const onHash = () => setTab(tabFromHash())
@@ -70,25 +57,7 @@ export function AdminConsole() {
       <aside className="cs-side">
         <div className="cs-brand">THE LOOP<small>Admin Console</small></div>
         <nav>
-          {NAV.map((n) => {
-            if (n.tab) return <a key={n.tab.id} href={`#${n.tab.id}`} className={n.tab.id === tab ? 'is-active' : ''}>{n.tab.label}</a>
-            const active = n.tabs.some((t) => t.id === tab)
-            const open = openGroup === n.group
-            return (
-              <div key={n.group} className="cs-nav-group">
-                <button type="button" className={`cs-nav-group-btn ${active ? 'is-active' : ''}`} aria-expanded={open} onClick={() => setOpenGroup(open ? null : n.group)}>
-                  {n.group}<span aria-hidden>{open ? '⌄' : '›'}</span>
-                </button>
-                {open && (
-                  <div className="cs-nav-menu" role="menu">
-                    {n.tabs.map((t) => (
-                      <a key={t.id} role="menuitem" href={`#${t.id}`} className={t.id === tab ? 'is-active' : ''} onClick={() => setOpenGroup(null)}>{t.label}</a>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          })}
+          {TABS.map((t) => <a key={t.id} href={`#${t.id}`} className={t.id === tab ? 'is-active' : ''} onClick={() => t.id === tab && setPageKey((k) => k + 1)}>{t.label}</a>)}
         </nav>
         <div className="cs-side-foot">
           <a href="/">← Back to app</a>
@@ -100,7 +69,7 @@ export function AdminConsole() {
           <span className="cs-muted">{user.name} · {user.role.label}</span>
           <button className="cs-btn" onClick={() => logout().then(() => window.location.assign('/'))}>Sign out</button>
         </header>
-        <main className="cs-content"><Page /></main>
+        <main className="cs-content"><Page key={pageKey} /></main>
       </div>
     </div>
   )

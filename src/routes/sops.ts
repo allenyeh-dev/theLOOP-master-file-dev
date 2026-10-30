@@ -499,6 +499,63 @@ sopRoutes.put('/:id', requirePermission('sop.submit'), async (c) => {
   return c.json({ success: true, id })
 })
 
+// ---------- version history ----------
+// Every version of a SOP, newest first. Restricted to people who may see the latest (unpublished) version.
+sopRoutes.get('/:id/versions', async (c) => {
+  const id = parseId(c.req.param('id') ?? '')
+  if (!id) return fail(c, 'Invalid id')
+  const found = await loadSop(c, id)
+  if (!found || !found.canSeeLatest) return fail(c, 'Not found', 404)
+  const { results } = await c.env.DB.prepare(
+    `SELECT v.id, v.version_no, v.status, v.title, v.content_json, v.lang, v.created_at, v.submitted_at, v.published_at, eu.name AS editor_name
+     FROM sop_versions v
+     JOIN sops s ON s.id = v.sop_id
+     JOIN users eu ON eu.id = COALESCE(v.edited_by, s.created_by)
+     WHERE v.sop_id = ? ORDER BY v.version_no DESC`
+  ).bind(id).all<{ id: number; content_json: string; [k: string]: unknown }>()
+  const versions = results.map(({ content_json, ...v }) => ({ ...v, content: normalizeContent(JSON.parse(content_json || '{}')) }))
+  return c.json({ success: true, current_id: found.row.id, can_restore: found.canEdit, versions })
+})
+
+// Restore an old version: its content (and translation) becomes the newest version. History is never rewritten:
+// on a published SOP this adds version n+1 as a draft; an unpublished draft is replaced in place, like any draft edit.
+sopRoutes.post('/:id/versions/:versionId/restore', requirePermission('sop.submit'), async (c) => {
+  const id = parseId(c.req.param('id') ?? '')
+  const versionId = parseId(c.req.param('versionId') ?? '')
+  if (!id || !versionId) return fail(c, 'Invalid id')
+  const user = c.get('user')
+  const found = await loadSop(c, id)
+  if (!found || !found.canEdit) return fail(c, 'Not found', 404)
+  const { row } = found
+  if (row.status === 'in_review') return fail(c, bi('目前狀態不能修改', 'This SOP can no longer be edited'), 409)
+  if (row.id === versionId) return fail(c, bi('這已經是目前的版本', 'That is already the current version'), 409)
+  const old = await c.env.DB.prepare(
+    `SELECT content_json, lang, title_alt, content_alt_json FROM sop_versions WHERE id = ? AND sop_id = ?`
+  ).bind(versionId, id).first<{ content_json: string; lang: Lang; title_alt: string | null; content_alt_json: string | null }>()
+  if (!old) return fail(c, 'Version not found', 404)
+  const content = normalizeContent(JSON.parse(old.content_json || '{}'))
+
+  if (row.status === 'published') {
+    try {
+      await c.env.DB.prepare(
+        `INSERT INTO sop_versions (sop_id, version_no, title, content_json, lang, title_alt, content_alt_json, edited_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(id, row.version_no + 1, content.title, JSON.stringify(content), old.lang, old.title_alt, old.content_alt_json, user.id).run()
+    } catch {
+      return fail(c, bi('已有人正在修改這份 SOP，請重新整理', 'Someone else just started editing this SOP — please reload'), 409)
+    }
+    return c.json({ success: true })
+  }
+
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      `UPDATE sop_versions SET title = ?, content_json = ?, lang = ?, title_alt = ?, content_alt_json = ?, status = 'draft', ai_review_json = NULL, edited_by = ? WHERE id = ?`
+    ).bind(content.title, JSON.stringify(content), old.lang, old.title_alt, old.content_alt_json, user.id, row.id),
+    c.env.DB.prepare(`DELETE FROM sop_approvals WHERE version_id = ?`).bind(row.id),
+  ])
+  return c.json({ success: true })
+})
+
 // ---------- submit ----------
 // Most specific chain wins: brand+category > brand > category > default.
 async function resolveChain(db: D1Database, brandIds: number[], categoryId: number | null) {
@@ -684,6 +741,43 @@ sopRoutes.post('/:id/publish', async (c) => {
     ...publishStatements(c.env.DB, row, brands as any),
   ])
   return c.json({ success: true, translated: Boolean(alt) })
+})
+
+// ---------- delete ----------
+const imageIds = (json: string | null) => {
+  const out: number[] = []
+  const c = json ? normalizeContent(JSON.parse(json)) : null
+  for (const st of c?.steps ?? []) out.push(...st.images)
+  return out
+}
+
+// Admin only. Permanently removes the SOP with all versions, approvals, read receipts and flags (all cascade).
+// Step images are not foreign-keyed, so afterwards the ones no remaining SOP uses are removed from R2 too.
+sopRoutes.delete('/:id', async (c) => {
+  const id = parseId(c.req.param('id') ?? '')
+  if (!id) return fail(c, 'Invalid id')
+  if (!isAdmin(c.get('user'))) return fail(c, 'Forbidden', 403)
+  const found = await loadSop(c, id)
+  if (!found) return fail(c, 'Not found', 404)
+
+  const { results: mine } = await c.env.DB.prepare(`SELECT content_json, content_alt_json FROM sop_versions WHERE sop_id = ?`).bind(id).all<{ content_json: string; content_alt_json: string | null }>()
+  const candidates = new Set(mine.flatMap((v) => [...imageIds(v.content_json), ...imageIds(v.content_alt_json)]))
+
+  await c.env.DB.prepare(`DELETE FROM sops WHERE id = ?`).bind(id).run()
+
+  if (candidates.size) {
+    try {
+      const { results: rest } = await c.env.DB.prepare(`SELECT content_json, content_alt_json FROM sop_versions`).all<{ content_json: string; content_alt_json: string | null }>()
+      for (const v of rest) for (const n of [...imageIds(v.content_json), ...imageIds(v.content_alt_json)]) candidates.delete(n)
+      for (const n of candidates) {
+        await c.env.SOP_IMAGES.delete(imageKey(n))
+        await c.env.DB.prepare(`DELETE FROM sop_images WHERE id = ?`).bind(n).run()
+      }
+    } catch (err) {
+      console.error('SOP image cleanup failed', err) // the SOP is already gone; leftover images are harmless
+    }
+  }
+  return c.json({ success: true })
 })
 
 // ---------- decide ----------

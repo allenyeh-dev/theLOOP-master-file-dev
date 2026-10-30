@@ -4,14 +4,23 @@ export interface SopContent {
   purpose: string
   audience: string
   tools: string
+  standards: string[]
   steps: { action: string; caution: string; images: number[] }[]
   mistakes: string
+  notes: string
   effective_date: string
 }
 
 export const MAX_STEP_IMAGES = 4
 
 const s = (v: unknown, max = 2000) => (typeof v === 'string' ? v.trim().slice(0, max) : '')
+
+// A list of one-line standards. A plain string (one per line) is accepted too.
+const standards = (v: unknown): string[] =>
+  (Array.isArray(v) ? v : typeof v === 'string' ? v.split('\n') : [])
+    .map((x) => s(x, 500).replace(/^[•\-*]\s*/, ''))
+    .filter(Boolean)
+    .slice(0, 50)
 
 export function normalizeContent(raw: unknown): SopContent {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
@@ -21,6 +30,7 @@ export function normalizeContent(raw: unknown): SopContent {
     purpose: s(r.purpose, 4000),
     audience: s(r.audience, 200),
     tools: s(r.tools),
+    standards: standards(r.standards),
     steps: steps
       .slice(0, 100)
       .map((x) => {
@@ -32,6 +42,7 @@ export function normalizeContent(raw: unknown): SopContent {
       })
       .filter((x) => x.action || x.caution || x.images.length),
     mistakes: s(r.mistakes),
+    notes: s(r.notes, 4000),
     effective_date: s(r.effective_date, 20),
   }
 }

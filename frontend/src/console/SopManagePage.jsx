@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { consoleApi } from '../api/console'
 import { sopApi } from '../api/sops'
-import { PageHead, formatUtc, useLoader } from './ui'
+import { ConfirmDialog, PageHead, formatUtc, useLoader } from './ui'
 import { SopUploadPage } from './SopUploadPage'
 
 const STATUS = { draft: 'Draft', in_review: 'In review', rejected: 'Rejected', published: 'Published' }
@@ -10,8 +10,10 @@ const names = (list) => (list.length ? list.map((x) => x.label).join(', ') : '�
 // All SOPs in one place: edit/publish a new version, and see who has (not) read each published one.
 export function SopManagePage() {
   const [editId, setEditId] = useState(null)
+  const [creating, setCreating] = useState(false)
   const [readSopId, setReadSopId] = useState(null)
   const [view, setView] = useState('sop')
+  const [delSop, setDelSop] = useState(null)
   const [unreadOnly, setUnreadOnly] = useState(true)
   const [search, setSearch] = useState('')
   const [sopQ, setSopQ] = useState('')
@@ -42,6 +44,7 @@ export function SopManagePage() {
     return m
   }, [pairs])
 
+  if (creating) return <SopUploadPage onBack={() => { setCreating(false); reload() }} />
   if (editId) return <SopUploadPage editId={editId} onBack={() => { setEditId(null); reload() }} />
 
   const q = search.trim().toLowerCase()
@@ -100,7 +103,7 @@ export function SopManagePage() {
 
   return (
     <>
-      <PageHead title="SOP · Manage" subtitle="Edit a SOP (fix text, add images) and publish the new version, or check who has read it." />
+      <PageHead title="SOP" subtitle="Edit a SOP (fix text, add images) and publish the new version, or check who has read it." action={<button type="button" className="cs-btn cs-btn--primary" onClick={() => setCreating(true)}>+ Create</button>} />
       {error && <p className="cs-error">{error}</p>}
       {!data && !error && <p className="cs-muted">Loading…</p>}
       {data && (
@@ -137,6 +140,7 @@ export function SopManagePage() {
                         {s.status === 'in_review'
                           ? <span className="cs-muted">Awaiting approval</span>
                           : <button type="button" className="cs-link" onClick={() => setEditId(s.sop_id)}>Edit</button>}
+                        {' '}<button type="button" className="cs-link cs-link--danger" onClick={() => setDelSop(s)}>Delete</button>
                       </td>
                     </tr>
                   )
@@ -184,6 +188,14 @@ export function SopManagePage() {
             </table>
           )}
         </>
+      )}
+      {delSop && (
+        <ConfirmDialog
+          title="Delete SOP"
+          message={`Permanently delete ${delSop.code ? `${delSop.code} · ` : ''}"${delSop.title}" with all its versions, read records and flags? This cannot be undone.`}
+          onClose={() => setDelSop(null)}
+          onConfirm={async () => { await sopApi.remove(delSop.sop_id); await reload() }}
+        />
       )}
     </>
   )

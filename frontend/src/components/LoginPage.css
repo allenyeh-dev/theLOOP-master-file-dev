@@ -103,8 +103,9 @@
   align-items: center;
   justify-content: center;
   gap: 0.6rem;
-  background: #fff;
-  color: #3c4043;
+  background: #131314;
+  color: #e3e3e3;
+  border: 1px solid #8e918f;
   border-radius: 8px;
   padding: 0.65rem;
   font-weight: 600;

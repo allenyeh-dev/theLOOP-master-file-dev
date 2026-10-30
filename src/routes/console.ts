@@ -410,6 +410,54 @@ consoleRoutes.delete('/sop-departments/:id', async (c) => {
   return c.json({ success: true })
 })
 
+/* --------------------------- SOP categories --------------------------- */
+
+consoleRoutes.get('/sop-categories', async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT cat.id, cat.label, (SELECT COUNT(*) FROM sops s WHERE s.category_id = cat.id) AS sop_count FROM sop_categories cat ORDER BY cat.id`
+  ).all()
+  return c.json({ success: true, categories: results })
+})
+
+consoleRoutes.post('/sop-categories', async (c) => {
+  const body = await c.req.json().catch(() => null)
+  const label = str(body?.label)
+  if (!label || label.length > 30) return fail(c, 'Category name must be 1-30 characters')
+  try {
+    const r = await c.env.DB.prepare(`INSERT INTO sop_categories (label, created_by) VALUES (?, ?)`).bind(label, c.get('user').id).run()
+    return c.json({ success: true, id: r.meta.last_row_id }, 201)
+  } catch (err) {
+    return fail(c, isUnique(err) ? 'A category with that name already exists' : 'Failed to create category', 409)
+  }
+})
+
+consoleRoutes.patch('/sop-categories/:id', async (c) => {
+  const id = parseId(c.req.param('id'))
+  if (!id) return fail(c, 'Invalid category id')
+  const body = await c.req.json().catch(() => null)
+  const label = str(body?.label)
+  if (!label || label.length > 30) return fail(c, 'Category name must be 1-30 characters')
+  try {
+    const r = await c.env.DB.prepare(`UPDATE sop_categories SET label = ? WHERE id = ?`).bind(label, id).run()
+    if (r.meta.changes === 0) return fail(c, 'Category not found', 404)
+    return c.json({ success: true })
+  } catch (err) {
+    return fail(c, isUnique(err) ? 'A category with that name already exists' : 'Failed to update category', 409)
+  }
+})
+
+consoleRoutes.delete('/sop-categories/:id', async (c) => {
+  const id = parseId(c.req.param('id'))
+  if (!id) return fail(c, 'Invalid category id')
+  const used = await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM sops WHERE category_id = ?`).bind(id).first<{ n: number }>()
+  if (used && used.n > 0) return fail(c, `${used.n} SOP(s) use this category`, 409)
+  // approval_chains.category_id cascades, so deleting a category used by a chain would silently drop that chain.
+  const chains = await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM approval_chains WHERE category_id = ?`).bind(id).first<{ n: number }>()
+  if (chains && chains.n > 0) return fail(c, 'An approval chain is set up for this category', 409)
+  await c.env.DB.prepare(`DELETE FROM sop_categories WHERE id = ?`).bind(id).run()
+  return c.json({ success: true })
+})
+
 /* ------------------------------- Roles ------------------------------- */
 
 async function validPermissionIds(db: D1Database, ids: unknown): Promise<number[] | null> {

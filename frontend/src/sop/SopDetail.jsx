@@ -89,6 +89,7 @@ export function SopDetail({ id, onBack, onChanged }) {
 
       <h3 className="sop-label">{t('目的')}</h3>
       <p>{c.purpose}</p>
+      {c.standards?.length > 0 && <><h3 className="sop-label">{t('關鍵準則')}</h3><ul>{c.standards.map((l, i) => <li key={i}>{l}</li>)}</ul></>}
 
       <button type="button" className="sop-btn sop-btn--wide" onClick={() => setFullOpen((o) => !o)}>
         {fullOpen ? t('收合完整流程 ▲') : t('顯示完整流程 ▼')}
@@ -99,6 +100,7 @@ export function SopDetail({ id, onBack, onChanged }) {
             {s.images?.length > 0 && <div className="sop-imgs">{s.images.map((id) => <a key={id} href={sopImageUrl(id)} target="_blank" rel="noreferrer"><img src={sopImageUrl(id)} alt="" loading="lazy" /></a>)}</div>}
           </li>)}</ol>
           {c.mistakes && <><h3 className="sop-label">{t('常見錯誤')}</h3><p>{c.mistakes}</p></>}
+          {c.notes && <><h3 className="sop-label">{t('提交備註')}</h3><p>{c.notes}</p></>}
         </div>
       )}
 
