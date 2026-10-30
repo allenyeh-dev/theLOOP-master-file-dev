@@ -115,9 +115,10 @@
   justify-content: center;
 }
 
-.topnav-tabs { display: flex; padding: 0 0.5rem; }
+.topnav-tabs { display: flex; padding: 0 0.5rem; overflow-x: auto; scrollbar-width: none; }
+.topnav-tabs::-webkit-scrollbar { display: none; }
 .topnav-tab {
-  flex: 1;
+  flex: 1 0 auto;
   background: none;
   border: 0;
   border-bottom: 2px solid transparent;
@@ -127,7 +128,7 @@
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  padding: 0.2rem 0.4rem;
+  padding: 0.2rem 0.9rem;
   cursor: pointer;
   white-space: nowrap;
 }

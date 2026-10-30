@@ -27,6 +27,9 @@ const PERMISSION_LABELS = {
   'users.manage': 'User & Role Management',
 }
 
+// Brand tabs that have no content yet.
+const BRAND_TABS = { logs: 'LOGS', schedule: 'SCHEDULE', tasks: 'TASKS', recipes: 'RECIPES' }
+
 const lastBrandKey = (userId) => `loop:lastBrand:${userId}`
 
 function readLastBrand(userId) {
@@ -123,7 +126,8 @@ export function Dashboard() {
         view={view}
         brandName={inBrand && brand ? [brand.label, brand.sub_label].filter(Boolean).join(' ') : null}
         brandLogo={inBrand && brand ? brand.logo_url : null}
-        showSop={inBrand && (hasPermission('sop.submit') || hasPermission('sop.approve'))}
+        showSop={hasPermission('sop.submit') || hasPermission('sop.approve')}
+        showRecipes={['chef', 'boh'].includes(effectiveRoleKey)}
         onNavigate={navigate}
       />
 
@@ -145,6 +149,8 @@ export function Dashboard() {
             query={sopQuery}
             onClearQuery={() => setSopQuery('')}
           />
+        ) : BRAND_TABS[view] ? (
+          <p className="muted brand-tab-empty">{t(BRAND_TABS[view])} — {t('Coming soon')}</p>
         ) : view === 'playbook' ? (
           <PlaybookPage />
         ) : view === 'brand' && brand ? (

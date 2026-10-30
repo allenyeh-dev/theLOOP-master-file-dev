@@ -14,6 +14,7 @@ export function TopNav({
   view,
   onNavigate,
   showSop,
+  showRecipes,
   brandName,
   brandLogo,
 }) {
@@ -71,10 +72,18 @@ export function TopNav({
         </button>
       </div>
 
-      {showSop && (
+      {brandName && (
         <nav className="topnav-tabs" aria-label="Sections">
-          <button type="button" className={`topnav-tab ${view === 'brand' ? 'is-active' : ''}`} onClick={() => { onNavigate('brand') }}>OPS</button>
-          <button type="button" className={`topnav-tab ${view === 'sop' ? 'is-active' : ''}`} onClick={() => onNavigate('sop')}>S.O.P.</button>
+          {[
+            ['brand', 'OPS', true],
+            ['logs', 'LOGS', true],
+            ['schedule', 'SCHEDULE', true],
+            ['tasks', 'TASKS', true],
+            ['recipes', 'RECIPES', showRecipes],
+            ['sop', 'S.O.P.', showSop],
+          ].filter(([, , shown]) => shown).map(([id, label]) => (
+            <button type="button" key={id} className={`topnav-tab ${view === id ? 'is-active' : ''}`} onClick={() => onNavigate(id)}>{label}</button>
+          ))}
         </nav>
       )}
     </header>
