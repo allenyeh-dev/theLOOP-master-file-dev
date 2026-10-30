@@ -1,22 +1,37 @@
 import { useEffect, useState } from 'react'
 import { consoleApi } from '../api/console'
 import { sopApi, sopImageUrl, uploadSopImage } from '../api/sops'
-import { Field, PageHead } from './ui'
+import { Field, LangToggle, PageHead } from './ui'
+import { useLang } from '../i18n/LanguageContext'
 import { ManageOptionsModal } from './ManageOptionsModal'
 import { SopVersionHistory } from './SopVersionHistory'
 
 const MAX_STEP_IMAGES = 4
 const EMPTY = { title: '', purpose: '', audience: '', tools: '', standards: [''], steps: [{ action: '', caution: '', images: [] }], mistakes: '', notes: '', effective_date: '' }
+const LANGS = ['zh', 'en']
+const norm = (c) => ({
+  ...EMPTY, ...c,
+  standards: c.standards?.length ? c.standards : EMPTY.standards,
+  steps: c.steps?.length ? c.steps.map((st) => ({ ...st, images: st.images ?? [] })) : EMPTY.steps,
+})
 const emptyMeta = { lang: 'zh', category_id: '', department_id: '', owner_role_id: '', brand_sel: '' }
 
 // A new SOP is written in Chinese if its text contains CJK characters, otherwise English.
 const detectLang = (c) => (/[\u3400-\u9fff]/.test([c.title, c.purpose, ...c.standards, ...c.steps.map((st) => st.action)].join('')) ? 'zh' : 'en')
 
 // Create mode (no editId) or edit mode: load an existing SOP, change it (e.g. add images) and publish the new version.
+// A SOP holds up to two language versions; the page language (EN / 中文 toggle) picks which one the form shows and edits.
 export function SopUploadPage({ editId = null, onBack = null }) {
+  const { t, lang, setLang } = useLang()
   const [refs, setRefs] = useState({ brands: [], categories: [], departments: [], roles: [] })
   const [source, setSource] = useState('')
-  const [content, setContent] = useState(EMPTY)
+  const [docs, setDocs] = useState({ zh: null, en: null })
+  const [dirty, setDirty] = useState({ zh: false, en: false })
+  const content = docs[lang] ?? EMPTY
+  const setContent = (fn) => {
+    setDocs((d) => ({ ...d, [lang]: fn(d[lang] ?? EMPTY) }))
+    setDirty((d) => ({ ...d, [lang]: true }))
+  }
   const [meta, setMeta] = useState(emptyMeta)
   const [busy, setBusy] = useState(null)
   const [error, setError] = useState(null)
@@ -36,7 +51,8 @@ export function SopUploadPage({ editId = null, onBack = null }) {
     if (!editId) return
     sopApi.edit(editId)
       .then(({ sop }) => {
-        setContent({ ...EMPTY, ...sop.content, standards: sop.content.standards?.length ? sop.content.standards : EMPTY.standards, steps: sop.content.steps?.length ? sop.content.steps.map((st) => ({ ...st, images: st.images ?? [] })) : EMPTY.steps })
+        setDocs({ zh: null, en: null, [sop.lang]: norm(sop.content), ...(sop.content_alt && { [sop.lang === 'en' ? 'zh' : 'en']: norm(sop.content_alt) }) })
+        setDirty({ zh: false, en: false })
         setMeta({
           lang: sop.lang, category_id: sop.category_id ?? '', department_id: sop.department_id ?? '',
           owner_role_id: sop.owner_role_id ?? '',
@@ -88,10 +104,12 @@ export function SopUploadPage({ editId = null, onBack = null }) {
     setBusy('ai'); setError(null)
     try {
       const r = await sopApi.aiStructure(source)
-      setContent({ ...EMPTY, ...r.content, standards: r.content.standards?.length ? r.content.standards : EMPTY.standards, steps: r.content.steps.length ? r.content.steps.map((st) => ({ ...st, images: st.images ?? [] })) : EMPTY.steps })
+      setDocs((d) => ({ ...d, [r.lang]: norm(r.content) }))
+      setDirty((d) => ({ ...d, [r.lang]: true }))
       setMeta((m) => ({ ...m, lang: r.lang }))
+      setLang(r.lang)
     } catch (err) {
-      setError(`${err.message} — you can still fill in the form below by hand.`)
+      setError(`${err.message} — ${t('you can still fill in the form below by hand.')}`)
     } finally {
       setBusy(null)
     }
@@ -100,8 +118,14 @@ export function SopUploadPage({ editId = null, onBack = null }) {
   async function save(publish) {
     setBusy(publish ? 'publish' : 'save'); setError(null)
     try {
+      // The author's language is kept as is; the other one is sent only if it can still be trusted
+      // (edited itself, or the original was not touched) — otherwise it is re-translated on publish.
+      const filled = LANGS.filter((l) => docs[l]?.title.trim())
+      const primary = editId ? meta.lang : filled.length === 1 ? detectLang(docs[filled[0]]) : filled.includes(lang) ? lang : filled[0]
+      const other = primary === 'en' ? 'zh' : 'en'
+      const alt = filled.length > 1 && docs[other]?.title.trim() && (dirty[other] || !dirty[primary]) ? docs[other] : null
       const payload = {
-        content, lang: editId ? meta.lang : detectLang(content),
+        content: docs[primary], content_alt: alt, lang: primary,
         category_id: num(meta.category_id), department_id: num(meta.department_id), owner_role_id: num(meta.owner_role_id),
         brand_ids: meta.brand_sel === 'keep' ? keptBrands.map((b) => b.id) : meta.brand_sel && meta.brand_sel !== 'all' ? [Number(meta.brand_sel)] : [],
       }
@@ -109,7 +133,7 @@ export function SopUploadPage({ editId = null, onBack = null }) {
       if (publish) await sopApi.publish(id)
       if (editId) { onBack(); return }
       setDone({ id, published: publish })
-      setContent(EMPTY); setMeta(emptyMeta); setSource('')
+      setDocs({ zh: null, en: null }); setDirty({ zh: false, en: false }); setMeta(emptyMeta); setSource('')
     } catch (err) {
       setError(err.message)
     } finally {
@@ -117,28 +141,31 @@ export function SopUploadPage({ editId = null, onBack = null }) {
     }
   }
 
+  const canSave = editId ? Boolean(docs[meta.lang]?.title.trim()) : LANGS.some((l) => docs[l]?.title.trim())
+
   return (
     <>
       {editId
-        ? <PageHead title="SOP · Edit" subtitle="Change the content or add images, then publish. Publishing replaces the live version." action={<button type="button" className="cs-btn" onClick={onBack}>← Back</button>} />
-        : <PageHead title="SOP · Create" subtitle="" action={onBack && <button type="button" className="cs-btn" onClick={onBack}>← Back</button>} />}
+        ? <PageHead title={t('SOP · Edit')} subtitle={t('Change the content or add images, then publish. Publishing replaces the live version.')} action={<div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}><LangToggle /><button type="button" className="cs-btn" onClick={onBack}>{t('← Back')}</button></div>} />
+        : <PageHead title={t('SOP · Create')} subtitle="" action={<div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}><LangToggle />{onBack && <button type="button" className="cs-btn" onClick={onBack}>{t('← Back')}</button>}</div>} />}
       {done && !editId && (
         <p className="cs-muted">
-          Saved SOP #{done.id} {done.published ? 'and published it — it is live on the SOP page now.' : 'as a draft. It is not visible to anyone until you publish it.'}
+          {done.published ? t('Saved SOP #{id} and published it — it is live on the SOP page now.', { id: done.id }) : t('Saved SOP #{id} as a draft. It is not visible to anyone until you publish it.', { id: done.id })}
         </p>
       )}
 
       <div className="cs-form" style={{ maxWidth: '52rem' }}>
+        {!docs[lang] && LANGS.some((l) => docs[l]) && <p className="cs-muted">{t('No version in this language yet — fill it in, or leave it empty to have it translated when you publish.')}</p>}
         <div className="cs-form-row">
-          <Field label="Brand" hint="Blank or All = company-wide.">
+          <Field label={t('Brand')} hint={t('Blank or All = company-wide.')}>
             <select disabled={locked} value={meta.brand_sel} onChange={(e) => setMeta({ ...meta, brand_sel: e.target.value })}>
               <option value="">—</option>
-              <option value="all">All</option>
+              <option value="all">{t('All')}</option>
               {keptBrands.length > 1 && <option value="keep">{keptBrands.map((b) => b.label).join(', ')}</option>}
               {refs.brands.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
             </select>
           </Field>
-          <Field label="Owner role" hint="Blank = last approver role.">
+          <Field label={t('Owner role')} hint={t('Blank = last approver role.')}>
             <select disabled={locked} value={meta.owner_role_id} onChange={(e) => setMeta({ ...meta, owner_role_id: e.target.value })}>
               <option value="">—</option>
               {refs.roles.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
@@ -146,91 +173,91 @@ export function SopUploadPage({ editId = null, onBack = null }) {
           </Field>
         </div>
         <div className="cs-form-row">
-          <Field label="Department" hint="Required to publish; sets the SOP number and who sees it.">
+          <Field label={t('Department')} hint={t('Required to publish; sets the SOP number and who sees it.')}>
             <select disabled={locked} value={meta.department_id} onChange={(e) => setMeta({ ...meta, department_id: e.target.value })}>
               <option value="">—</option>
               {[...refs.departments].sort((a, b) => (b.key === 'General') - (a.key === 'General')).map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
             </select>
           </Field>
-          <Field label="Category">
+          <Field label={t('Category')}>
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
               <select style={{ flex: 1 }} disabled={locked} value={meta.category_id} onChange={(e) => setMeta({ ...meta, category_id: e.target.value })}>
                 <option value="">—</option>
                 {refs.categories.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
               </select>
-              <button type="button" className="cs-link" onClick={() => setManage(true)}>Manage</button>
+              <button type="button" className="cs-link" onClick={() => setManage(true)}>{t('Manage')}</button>
             </div>
           </Field>
         </div>
-        <Field label="Title"><input value={content.title} onChange={(e) => setC({ title: e.target.value })} maxLength={120} /></Field>
-        <Field label="Purpose"><textarea rows={3} value={content.purpose} onChange={(e) => setC({ purpose: e.target.value })} /></Field>
-        <Field label="Key standards">
+        <Field label={t('Title')}><input value={content.title} onChange={(e) => setC({ title: e.target.value })} maxLength={120} /></Field>
+        <Field label={t('Purpose')}><textarea rows={3} value={content.purpose} onChange={(e) => setC({ purpose: e.target.value })} /></Field>
+        <Field label={t('Key standards')}>
           <div className="cs-form">
             {content.standards.map((x, i) => (
               <div key={i} className="cs-form-row" style={{ gridTemplateColumns: '2rem 1fr auto' }}>
                 <span className="cs-muted">•</span>
-                <input value={x} onChange={(e) => setStandard(i, e.target.value)} placeholder="Standard" />
-                <button type="button" className="cs-link cs-link--danger" disabled={content.standards.length === 1} onClick={() => setC({ standards: content.standards.filter((_, j) => j !== i) })}>Remove</button>
+                <input value={x} onChange={(e) => setStandard(i, e.target.value)} placeholder={t('Standard')} />
+                <button type="button" className="cs-link cs-link--danger" disabled={content.standards.length === 1} onClick={() => setC({ standards: content.standards.filter((_, j) => j !== i) })}>{t('Remove')}</button>
               </div>
             ))}
-            <div><button type="button" className="cs-link" onClick={() => setC({ standards: [...content.standards, ''] })}>+ Add standard</button></div>
+            <div><button type="button" className="cs-link" onClick={() => setC({ standards: [...content.standards, ''] })}>{t('+ Add standard')}</button></div>
           </div>
         </Field>
-        {content.tools && <Field label="Tools / ingredients"><input value={content.tools} onChange={(e) => setC({ tools: e.target.value })} /></Field>}
+        {content.tools && <Field label={t('Tools / ingredients')}><input value={content.tools} onChange={(e) => setC({ tools: e.target.value })} /></Field>}
 
-        <Field label="Steps">
+        <Field label={t('Steps')}>
           <div className="cs-form">
             {content.steps.map((s, i) => (
               <div key={i}>
                 <div className="cs-form-row" style={{ gridTemplateColumns: '2rem 2fr 1fr auto' }}>
                   <span className="cs-muted">{i + 1}.</span>
-                  <input value={s.action} onChange={(e) => setStep(i, { action: e.target.value })} placeholder="Action" />
-                  <input value={s.caution} onChange={(e) => setStep(i, { caution: e.target.value })} placeholder="Caution (optional)" />
-                  <button type="button" className="cs-link cs-link--danger" disabled={content.steps.length === 1} onClick={() => setC({ steps: content.steps.filter((_, j) => j !== i) })}>Remove</button>
+                  <input value={s.action} onChange={(e) => setStep(i, { action: e.target.value })} placeholder={t('Action')} />
+                  <input value={s.caution} onChange={(e) => setStep(i, { caution: e.target.value })} placeholder={t('Caution (optional)')} />
+                  <button type="button" className="cs-link cs-link--danger" disabled={content.steps.length === 1} onClick={() => setC({ steps: content.steps.filter((_, j) => j !== i) })}>{t('Remove')}</button>
                 </div>
                 <div className="cs-chips" style={{ marginLeft: '2rem', alignItems: 'center' }}>
                   {s.images.map((id) => (
                     <span key={id} style={{ position: 'relative' }}>
                       <img src={sopImageUrl(id)} alt="" style={{ height: '4.5rem', borderRadius: 6, display: 'block' }} />
-                      <button type="button" className="cs-icon-btn" aria-label="Remove image" style={{ position: 'absolute', top: 0, right: 0 }} onClick={() => setStep(i, { images: s.images.filter((x) => x !== id) })}>×</button>
+                      <button type="button" className="cs-icon-btn" aria-label={t('Remove image')} style={{ position: 'absolute', top: 0, right: 0 }} onClick={() => setStep(i, { images: s.images.filter((x) => x !== id) })}>×</button>
                     </span>
                   ))}
                   {s.images.length < MAX_STEP_IMAGES && (
                     <label className="cs-link" style={{ cursor: 'pointer' }}>
-                      {busy === `img${i}` ? 'Uploading…' : '+ Add image'}
+                      {busy === `img${i}` ? t('Uploading…') : t('+ Add image')}
                       <input type="file" accept="image/jpeg,image/png,image/webp" multiple hidden disabled={!!busy} onChange={(e) => addImages(i, e)} />
                     </label>
                   )}
                 </div>
               </div>
             ))}
-            <div><button type="button" className="cs-link" onClick={() => setC({ steps: [...content.steps, { action: '', caution: '', images: [] }] })}>+ Add step</button></div>
+            <div><button type="button" className="cs-link" onClick={() => setC({ steps: [...content.steps, { action: '', caution: '', images: [] }] })}>{t('+ Add step')}</button></div>
           </div>
         </Field>
-        {content.mistakes && <Field label="Common mistakes"><textarea rows={2} value={content.mistakes} onChange={(e) => setC({ mistakes: e.target.value })} /></Field>}
-        <Field label="Submission notes" hint="Anything unclear, unsure, or marked NEEDS CONFIRMATION.">
+        {content.mistakes && <Field label={t('Common mistakes')}><textarea rows={2} value={content.mistakes} onChange={(e) => setC({ mistakes: e.target.value })} /></Field>}
+        <Field label={t('Submission notes')} hint={t('Anything unclear, unsure, or marked NEEDS CONFIRMATION.')}>
           <textarea rows={2} value={content.notes} onChange={(e) => setC({ notes: e.target.value })} />
         </Field>
 
 
         {error && <p className="cs-error">{error}</p>}
         <div className="cs-toolbar">
-          <button type="button" className="cs-btn" onClick={() => save(false)} disabled={busy || !content.title.trim()}>{busy === 'save' ? 'Saving…' : 'Save as draft'}</button>
-          <button type="button" className="cs-btn cs-btn--primary" onClick={() => save(true)} disabled={busy || !content.title.trim()}>{busy === 'publish' ? 'Publishing…' : 'Save & publish'}</button>
+          <button type="button" className="cs-btn" onClick={() => save(false)} disabled={busy || !canSave}>{busy === 'save' ? t('Saving…') : t('Save as draft')}</button>
+          <button type="button" className="cs-btn cs-btn--primary" onClick={() => save(true)} disabled={busy || !canSave}>{busy === 'publish' ? t('Publishing…') : t('Save & publish')}</button>
         </div>
         {!editId && (
           <details className="cs-form">
-            <summary style={{ cursor: 'pointer' }}>Source text · Structure with AI</summary>
-            <Field label="Source text" hint="Optional. AI turns raw text into the fixed SOP format; you review everything before saving.">
-              <textarea rows={8} value={source} onChange={(e) => setSource(e.target.value)} placeholder="Paste SOP text here…" />
+            <summary style={{ cursor: 'pointer' }}>{t('Source text · Structure with AI')}</summary>
+            <Field label={t('Source text')} hint={t('Optional. AI turns raw text into the fixed SOP format; you review everything before saving.')}>
+              <textarea rows={8} value={source} onChange={(e) => setSource(e.target.value)} placeholder={t('Paste SOP text here…')} />
             </Field>
             <div className="cs-toolbar">
               <label className="cs-btn">
-                Choose file…
+                {t('Choose file…')}
                 <input type="file" accept=".md,.markdown,.txt,text/plain,text/markdown" onChange={pickFile} hidden />
               </label>
               <button type="button" className="cs-btn" onClick={structure} disabled={busy || source.trim().length < 10}>
-                {busy === 'ai' ? 'Structuring…' : 'Structure with AI'}
+                {busy === 'ai' ? t('Structuring…') : t('Structure with AI')}
               </button>
               <a className="cs-link" href="/sop-templates/sop-template-zh.md" download>Template (繁中)</a>
               <a className="cs-link" href="/sop-templates/sop-template-en.md" download>Template (EN)</a>
@@ -240,13 +267,13 @@ export function SopUploadPage({ editId = null, onBack = null }) {
       </div>
       {editId && (
         <details style={{ maxWidth: '52rem', marginTop: '1.5rem' }}>
-          <summary style={{ cursor: 'pointer' }}>Version history</summary>
+          <summary style={{ cursor: 'pointer' }}>{t('Version history')}</summary>
           <SopVersionHistory sopId={editId} refreshKey={rev} onRestored={() => setRev((r) => r + 1)} />
         </details>
       )}
       {manage && (
         <ManageOptionsModal
-          title="Manage categories" items={refs.categories} onClose={() => setManage(false)} onChanged={reloadLists}
+          title={t('Manage categories')} items={refs.categories} onClose={() => setManage(false)} onChanged={reloadLists}
           api={{ create: consoleApi.createSopCategory, update: consoleApi.updateSopCategory, remove: consoleApi.deleteSopCategory }}
         />
       )}

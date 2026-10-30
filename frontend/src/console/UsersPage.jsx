@@ -185,6 +185,7 @@ export function UsersPage() {
                   <td><span className={`cs-tag ${u.is_active ? 'cs-tag--ok' : 'cs-tag--off'}`}>{u.is_active ? 'Active' : 'Inactive'}</span></td>
                   <td className="cs-col-actions">
                     <button className="cs-link" onClick={() => setModal({ kind: 'edit', user: u })} >Edit</button>
+                    <button className="cs-link" onClick={() => consoleApi.impersonateUser(u.id).then(() => window.location.assign('/')).catch((e) => alert(e.message))} disabled={u.id === me.id || !u.is_active}>Log in as</button>
                     <button className="cs-link" onClick={() => toggleActive(u)} disabled={u.id === me.id}>
                       {u.is_active ? 'Deactivate' : 'Activate'}
                     </button>

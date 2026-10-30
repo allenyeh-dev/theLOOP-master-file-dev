@@ -4,6 +4,7 @@ import { verifyPassword } from '../lib/password'
 import {
   createSession,
   deleteSession,
+  findSessionUser,
   findUserByEmail,
   getBrandsForUser,
   getPermissionsForRole,
@@ -11,7 +12,7 @@ import {
   toAuthUser,
   type AuthUser,
 } from '../lib/auth-db'
-import { requireAuth, SESSION_COOKIE_NAME } from '../middleware/auth'
+import { requireAuth, ADMIN_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME } from '../middleware/auth'
 
 type Bindings = {
   DB: D1Database
@@ -75,7 +76,25 @@ authRoutes.post('/logout', async (c) => {
 })
 
 authRoutes.get('/me', requireAuth, async (c) => {
-  return c.json({ success: true, user: c.get('user') })
+  return c.json({ success: true, user: c.get('user'), impersonating: Boolean(getCookie(c, ADMIN_SESSION_COOKIE_NAME)) })
+})
+
+// End a console "Log in as": drop the borrowed session and go back to the admin's own, if it is still valid.
+authRoutes.post('/stop-impersonating', async (c) => {
+  const adminSession = getCookie(c, ADMIN_SESSION_COOKIE_NAME)
+  const current = getCookie(c, SESSION_COOKIE_NAME)
+  if (!adminSession) return c.json({ success: false, error: 'Not impersonating' }, 400)
+  deleteCookie(c, ADMIN_SESSION_COOKIE_NAME, { path: '/' })
+  if (current) await deleteSession(c.env.DB, current)
+  const row = await findSessionUser(c.env.DB, adminSession)
+  if (!row || !row.is_active || new Date(row.expires_at).getTime() < Date.now()) {
+    deleteCookie(c, SESSION_COOKIE_NAME, { path: '/' })
+    return c.json({ success: false, error: 'Admin session expired' }, 401)
+  }
+  setCookie(c, SESSION_COOKIE_NAME, adminSession, {
+    httpOnly: true, secure: new URL(c.req.url).protocol === 'https:', sameSite: 'Lax', path: '/', expires: new Date(row.expires_at),
+  })
+  return c.json({ success: true })
 })
 
 // ---- Google SSO (OAuth 2.0 authorization code flow) ----

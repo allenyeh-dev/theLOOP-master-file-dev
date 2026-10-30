@@ -11,9 +11,10 @@
 .sop-btn { font: inherit; font-size: 1.05rem; min-height: 52px; padding: 0 1.1rem; color: var(--text); background: var(--panel-alt); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; }
 .sop-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .sop-btn--primary { background: var(--accent); border-color: var(--accent); color: #14100d; font-weight: 700; }
+.sop-btn--sm { min-height: 36px; padding: 0 0.9rem; font-size: 0.9rem; border-radius: 10px; }
 .sop-btn--big { width: 100%; min-height: 60px; font-size: 1.15rem; }
 .sop-link { background: none; border: 0; color: var(--accent); font: inherit; font-size: 0.95rem; padding: 0.4rem 0; cursor: pointer; text-align: left; }
-.sop-new { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1.2rem; }
+.sop-new { display: flex; flex-direction: column; align-items: flex-start; gap: 0.6rem; margin-bottom: 1.2rem; }
 .sop-nav { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1.2rem; }
 .sop-nav .sop-btn--primary { flex: 1; }
 .sop-choices { display: flex; flex-direction: column; gap: 0.6rem; }
@@ -74,3 +75,24 @@ select.sop-input { appearance: auto; }
 
 .sop-imgs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
 .sop-imgs img { max-width: 100%; max-height: 14rem; border-radius: 8px; border: 1px solid var(--border); display: block; }
+
+/* ---- submit page (bilingual form) ---- */
+.sop-submit-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 0.8rem 1rem; margin-bottom: 1rem; }
+.sop-submit-card.is-done { opacity: 0.7; }
+.sop-submit-meta { display: flex; flex-wrap: wrap; gap: 0.8rem 1.2rem; margin: 0.6rem 0; }
+.sop-submit-meta label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85rem; color: var(--text-muted); min-width: 10rem; }
+.sop-fixed { color: var(--text); font-size: 1rem; padding: 0.45rem 0; }
+.sop-submit-table { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.sop-submit-row { display: grid; grid-template-columns: 6rem 1fr 1fr; gap: 0.6rem; padding: 0.6rem; border-top: 1px solid var(--border); font-size: 0.95rem; align-items: start; }
+.sop-submit-row:first-child { border-top: 0; }
+.sop-submit-row--head { background: var(--panel-alt); font-weight: 700; }
+.sop-submit-row .sop-input { margin: 0; resize: vertical; }
+.sop-submit-table--single .sop-submit-row { grid-template-columns: 6rem 1fr; }
+.sop-list { display: flex; flex-direction: column; gap: 0.3rem; }
+.sop-list-row { display: flex; align-items: center; gap: 0.3rem; }
+.sop-list-row .sop-input { flex: 1; min-width: 0; }
+.sop-list-no { color: var(--text-muted); min-width: 1.2rem; }
+@media (max-width: 640px) {
+  .sop-submit-row { grid-template-columns: 1fr; }
+  .sop-submit-row--head { display: none; }
+}

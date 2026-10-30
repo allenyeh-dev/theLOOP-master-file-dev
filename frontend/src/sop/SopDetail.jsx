@@ -6,7 +6,7 @@ import { localized } from './sopLang'
 
 const STATUS_KEYS = { draft: '草稿', in_review: '簽核中', rejected: '被退回', published: '已發布', superseded: '舊版' }
 
-export function SopDetail({ id, onBack, onChanged }) {
+export function SopDetail({ id, onBack, onChanged, onEdit }) {
   const { lang, t } = useLang()
   const { user, hasPermission } = useAuth()
   const [sop, setSop] = useState(null)
@@ -54,6 +54,8 @@ export function SopDetail({ id, onBack, onChanged }) {
   if (!sop) return <p className="sop-sub">{t('載入中…')}</p>
   const { title, content: c, original } = localized(sop, lang)
   const origLang = sop.lang === 'en' ? t('英文') : t('中文')
+  // Review information is only relevant while a version is being reviewed (or was sent back); once approved it is hidden.
+  const inReview = sop.status === 'in_review' || sop.status === 'rejected'
 
   return (
     <div>
@@ -104,7 +106,24 @@ export function SopDetail({ id, onBack, onChanged }) {
         </div>
       )}
 
-      {sop.ai_review && <AiReview review={sop.ai_review} />}
+      {inReview && sop.approvals?.length > 0 && (
+        <>
+          <h3 className="sop-label">{t('審核進度')}</h3>
+          <ol className="sop-timeline">
+            {sop.approvals.map((a) => (
+              <li key={a.step_no}>
+                <strong>{a.assignee_name ?? a.role_label}</strong>
+                {' · '}
+                {a.decision === 'approved' ? t('已通過') : a.decision === 'rejected' ? t('已退回') : t('待審核')}
+                {a.decision && a.approver_name && a.approver_name !== a.assignee_name && ` (${a.approver_name})`}
+                {a.comment && <em>{a.comment}</em>}
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
+
+      {inReview && sop.ai_review && <AiReview review={sop.ai_review} />}
       {error && <p className="sop-error">{error}</p>}
 
       {sop.status === 'in_review' && !sop.can_act && sop.created_by === user.id && hasPermission('sop.approve') && (
@@ -112,6 +131,12 @@ export function SopDetail({ id, onBack, onChanged }) {
       )}
 
       {sop.status === 'published' && sop.latest_status === 'in_review' && <p className="sop-notice">{t('已有新版本簽核中，通過前仍顯示目前版本')}</p>}
+
+      {sop.status === 'rejected' && sop.can_edit && (
+        <div className="sop-actions">
+          <button type="button" className="sop-btn sop-btn--primary" onClick={() => onEdit(sop.sop_id)}>{t('修改並重新送審')}</button>
+        </div>
+      )}
 
       {sop.can_act && (
         <div className="sop-actions">

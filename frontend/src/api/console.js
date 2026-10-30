@@ -6,6 +6,7 @@ export const consoleApi = {
   listUsers: () => request('/api/console/users'),
   createUser: (p) => request('/api/console/users', json('POST', p)),
   updateUser: (id, p) => request(`/api/console/users/${id}`, json('PATCH', p)),
+  impersonateUser: (id) => request(`/api/console/users/${id}/impersonate`, { method: 'POST' }),
   deleteUser: (id) => request(`/api/console/users/${id}`, { method: 'DELETE' }),
 
   listBrands: () => request('/api/console/brands'),
@@ -22,6 +23,9 @@ export const consoleApi = {
   createSopCategory: (p) => request('/api/console/sop-categories', json('POST', p)),
   updateSopCategory: (id, p) => request(`/api/console/sop-categories/${id}`, json('PATCH', p)),
   deleteSopCategory: (id) => request(`/api/console/sop-categories/${id}`, { method: 'DELETE' }),
+
+  listUserManagers: () => request('/api/console/user-managers'),
+  setUserManager: (userId, managerId) => request(`/api/console/user-managers/${userId}`, json('PUT', { manager_id: managerId })),
 
   sopReads: () => request('/api/console/sop-reads'),
 

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
+import { useLang } from '../i18n/LanguageContext'
 
 export function Modal({ title, onClose, children, footer, wide }) {
+  const { t } = useLang()
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', onKey)
@@ -12,7 +14,7 @@ export function Modal({ title, onClose, children, footer, wide }) {
       <div className={`cs-modal ${wide ? 'cs-modal--wide' : ''}`} onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
         <header className="cs-modal-head">
           <h2>{title}</h2>
-          <button type="button" className="cs-icon-btn" onClick={onClose} aria-label="Close">×</button>
+          <button type="button" className="cs-icon-btn" onClick={onClose} aria-label={t('Close')}>×</button>
         </header>
         <div className="cs-modal-body">{children}</div>
         {footer && <footer className="cs-modal-foot">{footer}</footer>}
@@ -22,6 +24,7 @@ export function Modal({ title, onClose, children, footer, wide }) {
 }
 
 export function ConfirmDialog({ title, message, confirmLabel = 'Delete', onConfirm, onClose }) {
+  const { t } = useLang()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
 
@@ -43,9 +46,9 @@ export function ConfirmDialog({ title, message, confirmLabel = 'Delete', onConfi
       onClose={onClose}
       footer={
         <>
-          <button type="button" className="cs-btn" onClick={onClose} disabled={busy}>Cancel</button>
+          <button type="button" className="cs-btn" onClick={onClose} disabled={busy}>{t('Cancel')}</button>
           <button type="button" className="cs-btn cs-btn--danger" onClick={run} disabled={busy}>
-            {busy ? 'Working…' : confirmLabel}
+            {busy ? t('Working…') : t(confirmLabel)}
           </button>
         </>
       }
@@ -73,6 +76,17 @@ export function useSubmit(action, onDone) {
     }
   }
   return { busy, error, submit }
+}
+
+// EN / 中文 switch shared by the SOP pages (same language store as the rest of the app).
+export function LangToggle() {
+  const { lang, setLang } = useLang()
+  return (
+    <div className="cs-lang" role="group" aria-label="Language / 語言">
+      <button type="button" className={lang === 'en' ? 'is-active' : ''} onClick={() => setLang('en')}>EN</button>
+      <button type="button" className={lang === 'zh' ? 'is-active' : ''} onClick={() => setLang('zh')}>中文</button>
+    </div>
+  )
 }
 
 export function Field({ label, hint, children }) {

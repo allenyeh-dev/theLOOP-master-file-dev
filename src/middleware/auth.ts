@@ -7,6 +7,8 @@ type Variables = { user: AuthUser }
 type AppContext = Context<{ Bindings: Bindings; Variables: Variables }>
 
 export const SESSION_COOKIE_NAME = 'loop_session'
+// Holds the admin's own session while they are signed in as someone else (console "Log in as").
+export const ADMIN_SESSION_COOKIE_NAME = 'loop_admin_session'
 
 export async function requireAuth(c: AppContext, next: Next) {
   const sessionId = getCookie(c, SESSION_COOKIE_NAME)

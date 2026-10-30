@@ -4,10 +4,12 @@ import { useAuth } from '../context/AuthContext'
 import { useLang } from '../i18n/LanguageContext'
 import { localized } from './sopLang'
 import { SopDetail } from './SopDetail'
+import { SopSubmitPage } from './SopSubmitPage'
 import './sop.css'
 
 const STATUS_KEYS = { draft: '草稿', in_review: '簽核中', rejected: '被退回', published: '已發布', superseded: '舊版' }
 const ADMIN_ROLES = ['admin']
+const isOpenSubmission = (s) => s.status === 'in_review' || s.status === 'rejected'
 
 // Search across both language versions of a SOP.
 function matches(s, q) {
@@ -21,13 +23,16 @@ function matches(s, q) {
 export function SopApp({ query = '', onClearQuery }) {
   const { user, hasPermission } = useAuth()
   const { lang, t } = useLang()
-  const canApprove = hasPermission('sop.approve')
+  // Approver = holds sop.approve, or is somebody's manager (the pending queue then opens for them too).
+  const [isApprover, setIsApprover] = useState(hasPermission('sop.approve'))
+  const canApprove = isApprover
   const isAdmin = ADMIN_ROLES.includes(user.role.key)
   const [tab, setTab] = useState('published')
   const [view, setView] = useState({ name: 'list' })
   const [list, setList] = useState(null)
   const [flags, setFlags] = useState([])
   const [pendingCount, setPendingCount] = useState(0)
+  const [mineOpen, setMineOpen] = useState(0) // my submissions still waiting or sent back
   const [categories, setCategories] = useState([])
   const [departments, setDepartments] = useState([])
   // Roles that see everything start on their own department (when they have exactly one).
@@ -42,11 +47,12 @@ export function SopApp({ query = '', onClearQuery }) {
       sopApi.flags().then((r) => setFlags(r.flags)).catch((e) => setError(t(e.message))).finally(() => setList([]))
       return
     }
-    sopApi.list(tab).then((r) => setList(r.sops)).catch((e) => setError(t(e.message)))
+    sopApi.list(tab).then((r) => setList(tab === 'mine' ? r.sops.filter(isOpenSubmission) : r.sops)).catch((e) => setError(t(e.message)))
   }, [tab, t])
   const loadPending = useCallback(() => {
-    if (canApprove) sopApi.list('pending').then((r) => setPendingCount(r.sops.length)).catch(() => {})
-  }, [canApprove])
+    sopApi.list('pending').then((r) => { setIsApprover(true); setPendingCount(r.sops.length) }).catch(() => {})
+    if (hasPermission('sop.submit')) sopApi.list('mine').then((r) => setMineOpen(r.sops.filter(isOpenSubmission).length)).catch(() => {})
+  }, [hasPermission])
 
   useEffect(() => { loadList() }, [loadList])
   useEffect(() => { loadPending() }, [loadPending])
@@ -55,6 +61,10 @@ export function SopApp({ query = '', onClearQuery }) {
     sopApi.departments().then((r) => setDepartments(r.departments)).catch(() => {})
   }, [])
 
+  if (view.name === 'submit') {
+    return <SopSubmitPage key={view.editId ?? 'new'} editId={view.editId} onBack={() => { setView({ name: 'list' }); loadList(); loadPending() }} />
+  }
+
   if (view.name === 'detail') {
     return (
       <div className="sop">
@@ -62,6 +72,7 @@ export function SopApp({ query = '', onClearQuery }) {
           id={view.id}
           onBack={() => { setView({ name: 'list' }); loadList(); loadPending() }}
           onChanged={loadPending}
+          onEdit={(sopId) => setView({ name: 'submit', editId: sopId })}
         />
       </div>
     )
@@ -72,6 +83,8 @@ export function SopApp({ query = '', onClearQuery }) {
 
   const tabs = [
     ['published', t('已發布')],
+    // Extra tabs only for people with an approval duty, or who have a submission in progress.
+    ...(hasPermission('sop.submit') && (canApprove || mineOpen > 0) ? [['mine', `${t('我的送審')}${mineOpen ? ` (${mineOpen})` : ''}`]] : []),
     ...(canApprove ? [['pending', `${t('待我簽核')}${pendingCount ? ` (${pendingCount})` : ''}`]] : []),
     ...(isAdmin ? [['flags', t('被標記')]] : []),
   ]
@@ -90,6 +103,11 @@ export function SopApp({ query = '', onClearQuery }) {
 
   return (
     <div className="sop">
+      {hasPermission('sop.submit') && (
+        <div className="sop-new">
+          <button type="button" className="sop-btn sop-btn--primary sop-btn--sm" onClick={() => setView({ name: 'submit' })}>{t('＋ 新增 SOP')}</button>
+        </div>
+      )}
       {tabs.length > 1 && <div className="sop-tabs">
         {tabs.map(([id, label]) => (
           <button key={id} type="button" className={tab === id ? 'is-active' : ''} onClick={() => setTab(id)}>{label}</button>
@@ -149,11 +167,11 @@ export function SopApp({ query = '', onClearQuery }) {
         )
       })}
 
-      {tab === 'pending' && filtered.map((s) => (
+      {(tab === 'pending' || tab === 'mine') && filtered.map((s) => (
         <button type="button" key={s.id} className="sop-card" onClick={() => setView({ name: 'detail', id: s.sop_id })}>
           <strong>{localized(s, lang).title || t('（未命名）')}</strong>
           <span>
-            {t(STATUS_KEYS[s.status])} · v{s.version_no} · {s.category_label ?? t('未分類')}
+            {t(STATUS_KEYS[s.status])} · v{s.version_no} · {tab === 'pending' ? `${t('送審者')}：${s.editor_name}` : (s.dept_label ?? t('未分類'))}
             {!s.content_alt && ` · ${t('僅單語')}`}
           </span>
         </button>

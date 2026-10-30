@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { sopApi } from '../api/sops'
+import { useLang } from '../i18n/LanguageContext'
 import { ConfirmDialog, formatUtc } from './ui'
+import { localized } from '../sop/sopLang'
 
 const STATUS = { draft: 'Draft', in_review: 'In review', rejected: 'Rejected', published: 'Published', superseded: 'Superseded' }
 
@@ -39,14 +41,16 @@ const LINE_STYLE = {
 const MARK = { add: '+', del: '−', same: ' ' }
 
 function Changes({ prev, version }) {
-  const parts = FIELDS.map(([label, get]) => [label, diffLines(prev ? get(prev.content) : [], get(version.content))])
+  const { t, lang } = useLang()
+  const text = (v) => localized(v, lang).content
+  const parts = FIELDS.map(([label, get]) => [label, diffLines(prev ? get(text(prev)) : [], get(text(version)))])
     .filter(([, lines]) => lines.some((l) => l.type !== 'same'))
-  if (parts.length === 0) return <p className="cs-muted">No text changes{prev ? ` since v${prev.version_no}` : ''} (images or SOP details may differ).</p>
+  if (parts.length === 0) return <p className="cs-muted">{prev ? t('No text changes since v{n} (images or SOP details may differ).', { n: prev.version_no }) : t('No text changes (images or SOP details may differ).')}</p>
   return (
     <div className="cs-form">
       {parts.map(([label, lines]) => (
         <div key={label}>
-          <strong>{label}</strong>
+          <strong>{t(label)}</strong>
           {lines.map((l, i) => (
             <div key={i} style={{ ...LINE_STYLE[l.type], padding: '0.1rem 0.4rem', whiteSpace: 'pre-wrap' }}>{MARK[l.type]} {l.text}</div>
           ))}
@@ -58,6 +62,7 @@ function Changes({ prev, version }) {
 
 // Version list of one SOP with per-version changes (vs the previous version) and restore.
 export function SopVersionHistory({ sopId, refreshKey, onRestored }) {
+  const { t } = useLang()
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [open, setOpen] = useState(null)
@@ -68,7 +73,7 @@ export function SopVersionHistory({ sopId, refreshKey, onRestored }) {
   }, [sopId, refreshKey])
 
   if (error) return <p className="cs-error">{error}</p>
-  if (!data) return <p className="cs-muted">Loading…</p>
+  if (!data) return <p className="cs-muted">{t('Loading…')}</p>
 
   const { versions, current_id, can_restore } = data
   return (
@@ -79,10 +84,10 @@ export function SopVersionHistory({ sopId, refreshKey, onRestored }) {
           <div key={v.id}>
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
               <strong>v{v.version_no}</strong>
-              <span>{STATUS[v.status] ?? v.status}{v.id === current_id ? ' · current' : ''}</span>
+              <span>{t(STATUS[v.status] ?? v.status)}{v.id === current_id ? ` · ${t('current')}` : ''}</span>
               <span className="cs-muted">{v.editor_name} · {formatUtc(v.published_at ?? v.submitted_at ?? v.created_at)}</span>
-              <button type="button" className="cs-link" onClick={() => setOpen(open === v.id ? null : v.id)}>{open === v.id ? 'Hide changes' : 'Changes'}</button>
-              {can_restore && v.id !== current_id && <button type="button" className="cs-link" onClick={() => setRestore(v)}>Restore</button>}
+              <button type="button" className="cs-link" onClick={() => setOpen(open === v.id ? null : v.id)}>{open === v.id ? t('Hide changes') : t('Changes')}</button>
+              {can_restore && v.id !== current_id && <button type="button" className="cs-link" onClick={() => setRestore(v)}>{t('Restore')}</button>}
             </div>
             {open === v.id && <div style={{ margin: '0.5rem 0 0.75rem 1rem' }}><Changes prev={prev} version={v} /></div>}
           </div>
@@ -90,8 +95,8 @@ export function SopVersionHistory({ sopId, refreshKey, onRestored }) {
       })}
       {restore && (
         <ConfirmDialog
-          title={`Restore v${restore.version_no}`}
-          message={`Use the content of v${restore.version_no} as the newest version? Nothing is deleted — it is added to the history as a new version, and unsaved edits in the form are discarded.`}
+          title={t('Restore v{n}', { n: restore.version_no })}
+          message={t('Use the content of v{n} as the newest version? Nothing is deleted — it is added to the history as a new version, and unsaved edits in the form are discarded.', { n: restore.version_no })}
           confirmLabel="Restore"
           onClose={() => setRestore(null)}
           onConfirm={async () => { await sopApi.restoreVersion(sopId, restore.id); onRestored() }}

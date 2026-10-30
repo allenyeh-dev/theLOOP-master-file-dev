@@ -11,6 +11,10 @@ export function logout() {
   return request('/api/auth/logout', { method: 'POST' })
 }
 
+export function stopImpersonating() {
+  return request('/api/auth/stop-impersonating', { method: 'POST' })
+}
+
 export function fetchMe() {
   return request('/api/auth/me')
 }

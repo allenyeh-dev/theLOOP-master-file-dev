@@ -1,7 +1,8 @@
 import { Hono } from 'hono'
-import { requireAuth, requireAdmin } from '../middleware/auth'
+import { getCookie, setCookie } from 'hono/cookie'
+import { requireAuth, requireAdmin, ADMIN_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME } from '../middleware/auth'
 import { hashPassword } from '../lib/password'
-import type { AuthUser } from '../lib/auth-db'
+import { createSession, type AuthUser } from '../lib/auth-db'
 import { insertUserBrands, replaceUserBrands, validBrandIds, withBrands } from '../lib/brands'
 
 type Bindings = { DB: D1Database }
@@ -84,6 +85,26 @@ consoleRoutes.get('/users', async (c) => {
      ORDER BY u.id`
   ).all<{ id: number }>()
   return c.json({ success: true, users: await withDepartments(c.env.DB, await withBrands(c.env.DB, results)) })
+})
+
+// "Log in as": the browser gets a session for the target user; the admin's own session id is kept in a
+// separate httpOnly cookie so /api/auth/stop-impersonating can switch back. Admin-only, like the rest of the console.
+consoleRoutes.post('/users/:id/impersonate', async (c) => {
+  const id = parseId(c.req.param('id'))
+  if (!id) return fail(c, 'Invalid user id')
+  const admin = c.get('user')
+  if (id === admin.id) return fail(c, 'You are already signed in as this user')
+  const target = await c.env.DB.prepare(`SELECT id, name, email FROM users WHERE id = ? AND is_active = 1`).bind(id).first<{ id: number; name: string; email: string }>()
+  if (!target) return fail(c, 'User not found or inactive', 404)
+
+  const adminSession = getCookie(c, SESSION_COOKIE_NAME)
+  const session = await createSession(c.env.DB, target.id)
+  const opts = { httpOnly: true, secure: new URL(c.req.url).protocol === 'https:', sameSite: 'Lax' as const, path: '/', expires: session.expiresAt }
+  // Keep the original admin session if we are already impersonating (switching straight to another user).
+  if (!getCookie(c, ADMIN_SESSION_COOKIE_NAME)) setCookie(c, ADMIN_SESSION_COOKIE_NAME, adminSession!, opts)
+  setCookie(c, SESSION_COOKIE_NAME, session.id, opts)
+  console.log(`[audit] admin ${admin.email} (#${admin.id}) impersonating ${target.email} (#${target.id})`)
+  return c.json({ success: true })
 })
 
 consoleRoutes.post('/users', async (c) => {
@@ -339,7 +360,7 @@ const SOP_AUDIENCE = `u.is_active = 1
 // Read receipts are per published version, so a new version resets everyone to unread.
 consoleRoutes.get('/sop-reads', async (c) => {
   const { results: sops } = await c.env.DB.prepare(
-    `SELECT s.id AS sop_id, s.code, v.id AS version_id, v.version_no, v.title, v.published_at,
+    `SELECT s.id AS sop_id, s.code, v.id AS version_id, v.version_no, v.title, v.lang, v.title_alt, v.published_at,
             d.label AS dept_label, cat.label AS category_label
      FROM sops s
      JOIN sop_versions v ON v.id = s.published_version_id
@@ -360,6 +381,52 @@ consoleRoutes.get('/sop-reads', async (c) => {
   ).all<{ id: number }>()
   const users = await withDepartments(c.env.DB, await withBrands(c.env.DB, userRows))
   return c.json({ success: true, sops, users, pairs })
+})
+
+/* ---------------------------- User managers --------------------------- */
+
+consoleRoutes.get('/user-managers', async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT u.id, u.name, u.email, u.is_active, r.label AS role_label, um.manager_id
+     FROM users u
+     LEFT JOIN roles r ON r.id = u.role_id
+     LEFT JOIN user_managers um ON um.user_id = u.id
+     ORDER BY u.name`
+  ).all()
+  return c.json({ success: true, users: results })
+})
+
+// Set or clear (manager_id null) the person SOPs from this user are submitted to.
+consoleRoutes.put('/user-managers/:userId', async (c) => {
+  const userId = parseId(c.req.param('userId'))
+  if (!userId) return fail(c, 'Invalid user id')
+  const body = await c.req.json().catch(() => null)
+  const managerId = body?.manager_id == null ? null : Number(body.manager_id)
+  if (managerId !== null && !Number.isInteger(managerId)) return fail(c, 'Invalid manager id')
+
+  const user = await c.env.DB.prepare(`SELECT id FROM users WHERE id = ?`).bind(userId).first()
+  if (!user) return fail(c, 'User not found', 404)
+  if (managerId === null) {
+    await c.env.DB.prepare(`DELETE FROM user_managers WHERE user_id = ?`).bind(userId).run()
+    return c.json({ success: true })
+  }
+  if (managerId === userId) return fail(c, 'A person cannot be their own manager')
+  const manager = await c.env.DB.prepare(`SELECT id FROM users WHERE id = ? AND is_active = 1`).bind(managerId).first()
+  if (!manager) return fail(c, 'Manager not found or inactive', 404)
+
+  // Walk up from the new manager; reaching this user would make a loop.
+  let cursor: number | null = managerId
+  for (let i = 0; cursor !== null && i < 100; i++) {
+    if (cursor === userId) return fail(c, 'That would create a reporting loop', 409)
+    const up: { manager_id: number } | null = await c.env.DB.prepare(`SELECT manager_id FROM user_managers WHERE user_id = ?`).bind(cursor).first<{ manager_id: number }>()
+    cursor = up ? up.manager_id : null
+  }
+
+  await c.env.DB.prepare(
+    `INSERT INTO user_managers (user_id, manager_id) VALUES (?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET manager_id = excluded.manager_id, updated_at = datetime('now')`
+  ).bind(userId, managerId).run()
+  return c.json({ success: true })
 })
 
 /* --------------------------- SOP departments -------------------------- */

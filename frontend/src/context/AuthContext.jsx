@@ -7,10 +7,11 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [impersonating, setImpersonating] = useState(false)
 
   useEffect(() => {
     fetchMe()
-      .then((data) => { setUser(data.user); syncPush() })
+      .then((data) => { setUser(data.user); setImpersonating(Boolean(data.impersonating)); syncPush() })
       .catch(() => setUser(null))
       .finally(() => setLoading(false))
   }, [])
@@ -34,7 +35,7 @@ export function AuthProvider({ children }) {
   )
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, hasPermission }}>
+    <AuthContext.Provider value={{ user, loading, impersonating, login, logout, hasPermission }}>
       {children}
     </AuthContext.Provider>
   )

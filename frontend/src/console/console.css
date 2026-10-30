@@ -91,3 +91,7 @@
 
 .cs-denied { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; color: var(--text); }
 .cs-denied a { color: var(--accent); }
+
+.cs-lang { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.cs-lang button { background: none; border: 0; padding: 0.25rem 0.6rem; font: inherit; color: var(--text-muted); cursor: pointer; }
+.cs-lang button.is-active { background: var(--accent); color: #fff; }

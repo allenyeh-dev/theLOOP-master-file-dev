@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { ConfirmDialog, Modal } from './ui'
+import { useLang } from '../i18n/LanguageContext'
 
 const ROW = { display: 'flex', gap: '0.5rem', alignItems: 'center' }
 
 // Add / rename / delete the items of a lookup list (e.g. categories) without leaving the page.
 export function ManageOptionsModal({ title, items, api, onClose, onChanged }) {
+  const { t } = useLang()
   const [drafts, setDrafts] = useState({})
   const [fresh, setFresh] = useState('')
   const [busy, setBusy] = useState(false)
@@ -37,25 +39,25 @@ export function ManageOptionsModal({ title, items, api, onClose, onChanged }) {
   )
 
   return (
-    <Modal title={title} onClose={onClose} footer={<button type="button" className="cs-btn" onClick={onClose}>Done</button>}>
+    <Modal title={title} onClose={onClose} footer={<button type="button" className="cs-btn" onClick={onClose}>{t('Done')}</button>}>
       <div className="cs-form">
         {items.map((it) => (
           <div key={it.id} style={ROW}>
             <input style={{ flex: 1 }} value={draftOf(it)} onChange={(e) => setDrafts({ ...drafts, [it.id]: e.target.value })} />
-            <button type="button" className="cs-link" disabled={busy || !dirty(it) || !draftOf(it).trim()} onClick={() => save(it)}>Save</button>
-            <button type="button" className="cs-link cs-link--danger" disabled={busy} onClick={() => setDel(it)}>Delete</button>
+            <button type="button" className="cs-link" disabled={busy || !dirty(it) || !draftOf(it).trim()} onClick={() => save(it)}>{t('Save')}</button>
+            <button type="button" className="cs-link cs-link--danger" disabled={busy} onClick={() => setDel(it)}>{t('Delete')}</button>
           </div>
         ))}
         <div style={ROW}>
-          <input style={{ flex: 1 }} value={fresh} onChange={(e) => setFresh(e.target.value)} placeholder="New name" />
-          <button type="button" className="cs-link" disabled={busy || !fresh.trim()} onClick={add}>+ Add</button>
+          <input style={{ flex: 1 }} value={fresh} onChange={(e) => setFresh(e.target.value)} placeholder={t('New name')} />
+          <button type="button" className="cs-link" disabled={busy || !fresh.trim()} onClick={add}>{t('+ Add')}</button>
         </div>
         {error && <p className="cs-error">{error}</p>}
       </div>
       {del && (
         <ConfirmDialog
-          title="Delete"
-          message={`Delete "${del.label}"? The server refuses if it is still in use.`}
+          title={t('Delete')}
+          message={t('Delete "{name}"? The server refuses if it is still in use.', { name: del.label })}
           onClose={() => setDel(null)}
           onConfirm={async () => { await api.remove(del.id); await onChanged() }}
         />

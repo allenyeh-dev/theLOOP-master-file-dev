@@ -6,3 +6,6 @@
   color: var(--text-muted);
   background: var(--bg);
 }
+
+.impersonate-banner { position: sticky; top: 0; z-index: 1000; padding: 0.4rem 1rem; text-align: center; font-size: 0.9rem; font-weight: 700; color: #14100d; background: #e0a43c; }
+.impersonate-banner button { font: inherit; text-decoration: underline; color: inherit; background: none; border: 0; cursor: pointer; }

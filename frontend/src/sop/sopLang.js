@@ -6,6 +6,12 @@ export function localized(sop, lang) {
   return { title: sop.title, content: sop.content, original: true }
 }
 
+// Title only, for rows that carry just the title columns (lists, flags, read receipts).
+export function localizedTitle(row, lang) {
+  if (row.lang === lang) return row.title
+  return row.title_alt || row.content_alt?.title || row.title
+}
+
 // Stable fingerprint of the translatable fields, to tell whether a translation is out of date.
 export function snap(c) {
   const t = (v) => (v ?? '').trim()

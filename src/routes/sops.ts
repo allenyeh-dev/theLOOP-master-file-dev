@@ -91,7 +91,7 @@ sopRoutes.get('/roles', async (c) => {
 sopRoutes.get('/flags', async (c) => {
   if (!isAdmin(c.get('user'))) return fail(c, 'Forbidden', 403)
   const { results } = await c.env.DB.prepare(
-    `SELECT f.id, f.sop_id, f.reason, f.status, f.created_at, u.name AS flagged_by, v.title, s.code
+    `SELECT f.id, f.sop_id, f.reason, f.status, f.created_at, u.name AS flagged_by, v.title, v.lang, v.title_alt, s.code
      FROM sop_flags f JOIN sops s ON s.id = f.sop_id JOIN sop_versions v ON v.id = f.version_id
      JOIN users u ON u.id = f.user_id
      WHERE f.status = 'open' ORDER BY f.id DESC`
@@ -213,14 +213,14 @@ const brandVisible = `(
              WHERE sb.sop_id = s.id AND ub.user_id = ?)
 )`
 
-// Pending steps this user may act on: first undecided step of an in_review version, role matches
-// (admins may act on any step) and the user shares a brand with the SOP.
+// Pending steps this user may act on: first undecided step of an in_review version, assigned to them or
+// (when unassigned) matching their role (admins may act on any step) and sharing a brand with the SOP.
 const actionable = (adminAny: boolean) => `
   v.status = 'in_review'
   AND a.step_no = (SELECT MIN(a2.step_no) FROM sop_approvals a2 WHERE a2.version_id = v.id AND a2.decision IS NULL)
   AND a.decision IS NULL
-  AND ${adminAny ? '1=1' : 'a.role_id = ?'}
-  AND ${brandVisible}
+  AND ${adminAny ? '1=1' : '(a.assignee_id = ? OR (a.assignee_id IS NULL AND a.role_id = ?))'}
+  AND (a.assignee_id IS NOT NULL OR a.role_id = (SELECT id FROM roles WHERE key = 'admin') OR ${brandVisible})
   AND ${adminAny ? "(COALESCE(v.edited_by, s.created_by) != ? OR a.role_id = (SELECT id FROM roles WHERE key = 'admin'))" : 'COALESCE(v.edited_by, s.created_by) != ?'}`
 
 function hydrate(r: VersionRow) {
@@ -257,6 +257,75 @@ async function brandsOf(db: D1Database, sopIds: number[]) {
   return m
 }
 
+// Managers named in the relation table can act on the steps assigned to them without holding sop.approve.
+const isManager = async (db: D1Database, userId: number) =>
+  Boolean(await db.prepare(`SELECT 1 AS ok FROM user_managers WHERE manager_id = ? LIMIT 1`).bind(userId).first())
+
+// ---------- who a submission goes to ----------
+type ChainStep = { role_id: number; assignee_id: number | null; label: string; emails: string[] }
+
+// The submitter's manager, then that manager's manager, and so on up the admin-configured relation table.
+// The last step is always an admin (any active admin may sign it); climbing stops early at a manager who is an admin.
+async function resolveManagerChain(db: D1Database, userId: number): Promise<ChainStep[]> {
+  const steps: ChainStep[] = []
+  const seen = new Set<number>([userId])
+  let cursor = userId
+  for (let i = 0; i < 20; i++) {
+    const m = await db.prepare(
+      `SELECT u.id, u.name, u.email, u.role_id, r.key AS role_key FROM user_managers um
+       JOIN users u ON u.id = um.manager_id JOIN roles r ON r.id = u.role_id
+       WHERE um.user_id = ?`
+    ).bind(cursor).first<{ id: number; name: string; email: string; role_id: number; role_key: string }>()
+    if (!m || seen.has(m.id)) break
+    seen.add(m.id)
+    cursor = m.id
+    if (m.role_key === 'admin') break // admins sign as the final step below
+    const active = await db.prepare(`SELECT 1 AS ok FROM users WHERE id = ? AND is_active = 1`).bind(m.id).first()
+    if (active) steps.push({ role_id: m.role_id, assignee_id: m.id, label: m.name, emails: [m.email] })
+  }
+  const { results: admins } = await db.prepare(
+    `SELECT u.name, u.email, u.role_id FROM users u JOIN roles r ON r.id = u.role_id
+     WHERE r.key = 'admin' AND u.is_active = 1 AND u.id != ?`
+  ).bind(userId).all<{ name: string; email: string; role_id: number }>()
+  if (admins.length) {
+    steps.push({ role_id: admins[0].role_id, assignee_id: null, label: admins.map((a) => a.name).join(', '), emails: admins.map((a) => a.email) })
+  }
+  return steps
+}
+
+// Who must be told that `step` is waiting: its assignee, or the holders of its role (brand-scoped, except admins).
+async function stepEmails(db: D1Database, step: { role_id: number; assignee_id: number | null }, brandIds: number[], editorId: number) {
+  if (step.assignee_id) {
+    const u = await db.prepare(`SELECT email FROM users WHERE id = ? AND is_active = 1`).bind(step.assignee_id).first<{ email: string }>()
+    return u ? [u.email] : []
+  }
+  // Admins are not brand-scoped.
+  const role = await db.prepare(`SELECT key FROM roles WHERE id = ?`).bind(step.role_id).first<{ key: string }>()
+  return approverEmails(db, step.role_id, role && CONSOLE_ROLE_KEYS.includes(role.key) ? [] : brandIds, editorId)
+}
+
+// Which language column(s) the submit form shows, remembered per account.
+const FORM_VIEWS = ['both', 'en', 'zh']
+sopRoutes.get('/my-prefs', async (c) => {
+  const row = await c.env.DB.prepare(`SELECT value FROM user_prefs WHERE user_id = ? AND key = 'sop_form_view'`).bind(c.get('user').id).first<{ value: string }>()
+  return c.json({ success: true, form_view: row && FORM_VIEWS.includes(row.value) ? row.value : 'both' })
+})
+
+sopRoutes.put('/my-prefs', async (c) => {
+  const body = await c.req.json().catch(() => ({}))
+  if (!FORM_VIEWS.includes(body.form_view)) return fail(c, 'Invalid form_view')
+  await c.env.DB.prepare(
+    `INSERT INTO user_prefs (user_id, key, value) VALUES (?, 'sop_form_view', ?)
+     ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value`
+  ).bind(c.get('user').id, body.form_view).run()
+  return c.json({ success: true })
+})
+
+sopRoutes.get('/my-approver', async (c) => {
+  const chain = await resolveManagerChain(c.env.DB, c.get('user').id)
+  return c.json({ success: true, approver: chain.length ? { name: chain.map((s) => s.label).join(' → '), levels: chain.length } : null })
+})
+
 // ---------- list ----------
 // scope=published (default) | mine | pending | all (admin only)
 sopRoutes.get('/', async (c) => {
@@ -282,15 +351,16 @@ sopRoutes.get('/', async (c) => {
     ).bind(user.id, user.id).all<VersionRow>()
     rows = r.results
   } else if (scope === 'pending') {
-    if (!user.permissions.includes('sop.approve')) return fail(c, 'Forbidden', 403)
+    // Anyone with sop.approve, or who is somebody's manager (their assigned steps), may open the queue.
+    if (!user.permissions.includes('sop.approve') && !(await isManager(c.env.DB, user.id))) return fail(c, 'Forbidden', 403)
     const admin = isAdmin(user)
-    const binds = admin ? [user.id, user.id] : [user.role.id, user.id, user.id]
+    const binds = admin ? [user.id, user.id] : [user.id, user.role.id, user.id, user.id]
     const r = await c.env.DB.prepare(
       `${LATEST_SELECT}
        JOIN sop_approvals a ON a.version_id = v.id
-       WHERE ${actionable(admin)} AND ${deptVisible(user).sql}
+       WHERE ${actionable(admin)} AND (${deptVisible(user).sql} OR a.assignee_id = ? OR ${admin ? '1=1' : '0'})
        ORDER BY v.submitted_at`
-    ).bind(...binds, ...deptVisible(user).binds).all<VersionRow>()
+    ).bind(...binds, ...deptVisible(user).binds, user.id).all<VersionRow>()
     rows = r.results
   } else {
     const r = await c.env.DB.prepare(
@@ -310,6 +380,15 @@ sopRoutes.get('/', async (c) => {
 })
 
 // ---------- detail ----------
+// Whether `user` may sign `step`. A step assigned to a person is theirs (or any admin's) regardless of brand;
+// an unassigned one goes by role and brand.
+function canActOnStep(user: AuthUser, row: VersionRow, step: any, inBrand: boolean) {
+  if (!step || !selfOk(user, row.editor_id, step.role_key)) return false
+  if (step.assignee_id) return step.assignee_id === user.id || isAdmin(user)
+  // Admins are not brand-scoped, so the final admin step is open to every admin.
+  return isAdmin(user) || (inBrand && step.role_id === user.role.id)
+}
+
 async function loadSop(c: any, sopId: number) {
   const user: AuthUser = c.get('user')
   const row = await c.env.DB.prepare(
@@ -318,8 +397,8 @@ async function loadSop(c: any, sopId: number) {
   if (!row) return null
   const brands = (await brandsOf(c.env.DB, [sopId])).get(sopId) ?? []
   const { results: approvals } = await c.env.DB.prepare(
-    `SELECT a.step_no, a.role_id, r.key AS role_key, r.label AS role_label, a.decision, a.comment, a.decided_at, u.name AS approver_name
-     FROM sop_approvals a JOIN roles r ON r.id = a.role_id LEFT JOIN users u ON u.id = a.approver_id
+    `SELECT a.step_no, a.role_id, a.assignee_id, r.key AS role_key, r.label AS role_label, a.decision, a.comment, a.decided_at, u.name AS approver_name, au.name AS assignee_name
+     FROM sop_approvals a JOIN roles r ON r.id = a.role_id LEFT JOIN users u ON u.id = a.approver_id LEFT JOIN users au ON au.id = a.assignee_id
      WHERE a.version_id = ? ORDER BY a.step_no`
   ).bind(row.id).all()
 
@@ -327,7 +406,8 @@ async function loadSop(c: any, sopId: number) {
   const isOwner = row.created_by === user.id
   const isEditor = row.editor_id === user.id
   const deptOk = await deptAllowed(c.env.DB, user, row.department_id)
-  const canSeeLatest = isOwner || isEditor || isAdmin(user) || (user.permissions.includes('sop.approve') && inBrand && deptOk)
+  const isAssignee = approvals.some((a: any) => a.assignee_id === user.id)
+  const canSeeLatest = isOwner || isEditor || isAdmin(user) || isAssignee || (user.permissions.includes('sop.approve') && inBrand && deptOk)
   // Anyone who can see a SOP may edit it (a published SOP gets a new version; the live one stays until approval).
   // A SOP that was never published is still a private draft: only its author/editor (or an admin) may touch it.
   const everPublished = row.published_version_id != null
@@ -357,13 +437,7 @@ sopRoutes.get('/:id', async (c) => {
   }
 
   const step = found.approvals.find((a: any) => a.decision === null)
-  const canAct =
-    row.status === 'in_review' &&
-    user.permissions.includes('sop.approve') &&
-    selfOk(user, row.editor_id, step?.role_key) &&
-    found.inBrand &&
-    !!step &&
-    (isAdmin(user) || step.role_id === user.role.id)
+  const canAct = row.status === 'in_review' && (user.permissions.includes('sop.approve') || step?.assignee_id === user.id) && canActOnStep(user, row, step, found.inBrand)
 
   const isPublished = row.status === 'published'
   const reads = isPublished ? await readSet(c.env.DB, user.id, [row.id]) : new Set<number>()
@@ -507,13 +581,17 @@ sopRoutes.get('/:id/versions', async (c) => {
   const found = await loadSop(c, id)
   if (!found || !found.canSeeLatest) return fail(c, 'Not found', 404)
   const { results } = await c.env.DB.prepare(
-    `SELECT v.id, v.version_no, v.status, v.title, v.content_json, v.lang, v.created_at, v.submitted_at, v.published_at, eu.name AS editor_name
+    `SELECT v.id, v.version_no, v.status, v.title, v.content_json, v.lang, v.title_alt, v.content_alt_json, v.created_at, v.submitted_at, v.published_at, eu.name AS editor_name
      FROM sop_versions v
      JOIN sops s ON s.id = v.sop_id
      JOIN users eu ON eu.id = COALESCE(v.edited_by, s.created_by)
      WHERE v.sop_id = ? ORDER BY v.version_no DESC`
-  ).bind(id).all<{ id: number; content_json: string; [k: string]: unknown }>()
-  const versions = results.map(({ content_json, ...v }) => ({ ...v, content: normalizeContent(JSON.parse(content_json || '{}')) }))
+  ).bind(id).all<{ id: number; content_json: string; content_alt_json: string | null; [k: string]: unknown }>()
+  const versions = results.map(({ content_json, content_alt_json, ...v }) => ({
+    ...v,
+    content: normalizeContent(JSON.parse(content_json || '{}')),
+    content_alt: content_alt_json ? normalizeContent(JSON.parse(content_alt_json)) : null,
+  }))
   return c.json({ success: true, current_id: found.row.id, can_restore: found.canEdit, versions })
 })
 
@@ -605,14 +683,24 @@ sopRoutes.post('/:id/submit', requirePermission('sop.submit'), async (c) => {
   if (missing.length) return fail(c, bi(`還缺：${missing.map((m) => m[0]).join('、')}`, `Missing: ${missing.map((m) => m[1]).join(', ')}`))
 
   const brandIds = brands.map((b) => b.id)
-  const steps = await resolveChain(c.env.DB, brandIds, row.category_id)
-  if (steps.length === 0) return fail(c, bi('找不到簽核流程，請聯絡管理員', 'No approval chain found — contact an admin'), 409)
-
   // Optional AI review result from the wizard (stored for approvers; never gates submission).
   const body = await c.req.json().catch(() => ({}))
   const aiReview = body.ai_review && typeof body.ai_review === 'object' ? JSON.stringify(body.ai_review) : null
 
-  const emails = await approverEmails(c.env.DB, steps[0].role_id, brandIds, user.id)
+  // route=manager: one step per level up the manager table, the last one an admin.
+  // Otherwise the role chain decides.
+  let steps: { step_no: number; role_id: number; assignee_id?: number | null }[]
+  let emails: string[]
+  if (body.route === 'manager') {
+    const chain = await resolveManagerChain(c.env.DB, user.id)
+    if (chain.length === 0) return fail(c, bi('找不到審核者，請聯絡管理員', 'No approver found — contact an admin'), 409)
+    steps = chain.map((st, i) => ({ step_no: i + 1, role_id: st.role_id, assignee_id: st.assignee_id }))
+    emails = chain[0].emails
+  } else {
+    steps = await resolveChain(c.env.DB, brandIds, row.category_id)
+    if (steps.length === 0) return fail(c, bi('找不到簽核流程，請聯絡管理員', 'No approval chain found — contact an admin'), 409)
+    emails = await approverEmails(c.env.DB, steps[0].role_id, brandIds, user.id)
+  }
   // Owner defaults to the role of the last approval step.
   if (!row.owner_role_id) {
     await c.env.DB.prepare(`UPDATE sops SET owner_role_id = ? WHERE id = ?`).bind(steps[steps.length - 1].role_id, row.sop_id).run()
@@ -636,7 +724,7 @@ sopRoutes.post('/:id/submit', requirePermission('sop.submit'), async (c) => {
 
   await c.env.DB.batch([
     ...steps.map((s) =>
-      c.env.DB.prepare(`INSERT OR REPLACE INTO sop_approvals (version_id, step_no, role_id) VALUES (?, ?, ?)`).bind(row.id, s.step_no, s.role_id)
+      c.env.DB.prepare(`INSERT OR REPLACE INTO sop_approvals (version_id, step_no, role_id, assignee_id) VALUES (?, ?, ?, ?)`).bind(row.id, s.step_no, s.role_id, s.assignee_id ?? null)
     ),
     ...emails.map((to) =>
       enqueueEmail(c.env.DB, to, `[THE LOOP] 待簽核 SOP / SOP awaiting approval: ${row.title}`, `${user.name} 送出了 SOP「${row.title}」，請登入系統簽核。\n${user.name} submitted the SOP "${row.title}". Please sign in to review it.`)
@@ -793,9 +881,7 @@ async function decide(c: any, decision: 'approved' | 'rejected') {
   if (!found) return fail(c, 'Not found', 404)
   const { row, brands, approvals } = found
   const step = approvals.find((a: any) => a.decision === null)
-  const allowed =
-    row.status === 'in_review' && step && found.inBrand && selfOk(user, row.editor_id, step.role_key) &&
-    (isAdmin(user) || step.role_id === user.role.id)
+  const allowed = row.status === 'in_review' && (user.permissions.includes('sop.approve') || step?.assignee_id === user.id) && canActOnStep(user, row, step, found.inBrand)
   if (!allowed) return fail(c, bi('你現在不能簽核這份 SOP', 'You cannot approve this SOP right now'), 403)
 
   // Conditional update guards against two approvers racing on the same step.
@@ -818,7 +904,7 @@ async function decide(c: any, decision: 'approved' | 'rejected') {
   } else {
     const next = approvals.find((a: any) => a.decision === null && a.step_no > step.step_no)
     if (next) {
-      const emails = await approverEmails(c.env.DB, next.role_id, brands.map((b: any) => b.id), row.editor_id)
+      const emails = await stepEmails(c.env.DB, next, brands.map((b: any) => b.id), row.editor_id)
       emails.forEach((to) => notify(to, `[THE LOOP] 待簽核 SOP / SOP awaiting approval: ${row.title}`, `SOP「${row.title}」已通過上一關，請登入系統簽核。\nThe SOP "${row.title}" passed the previous step. Please sign in to review it.`))
     } else {
       stmts.push(...publishStatements(c.env.DB, row, brands))
@@ -830,5 +916,6 @@ async function decide(c: any, decision: 'approved' | 'rejected') {
   return c.json({ success: true })
 }
 
-sopRoutes.post('/:id/approve', requirePermission('sop.approve'), (c) => decide(c, 'approved'))
-sopRoutes.post('/:id/reject', requirePermission('sop.approve'), (c) => decide(c, 'rejected'))
+// Permission is checked inside decide(): sop.approve, or being the assignee of the current step.
+sopRoutes.post('/:id/approve', (c) => decide(c, 'approved'))
+sopRoutes.post('/:id/reject', (c) => decide(c, 'rejected'))
