@@ -8,6 +8,14 @@ export function fetchAnnouncements() {
   return request('/api/announcements')
 }
 
+export function fetchPendingAnnouncements() {
+  return request('/api/announcements/pending')
+}
+
+export function ackAnnouncement(id) {
+  return request(`/api/announcements/${id}/ack`, { method: 'POST' })
+}
+
 export function fetchHappenings() {
   return request('/api/happenings')
 }
@@ -18,6 +26,14 @@ export function fetchBrands() {
 
 export function fetchBrandNotices(brandId) {
   return request(`/api/brands/${brandId}/notices`)
+}
+
+export function removePopupFromLog(id) {
+  return request(`/api/announcements/${id}/log`, { method: 'DELETE' })
+}
+
+export function fetchBrandPopups(brandId) {
+  return request(`/api/brands/${brandId}/popups`)
 }
 
 export function fetchOpsBoard(brandId, date) {

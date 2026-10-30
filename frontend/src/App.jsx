@@ -2,6 +2,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { stopImpersonating } from './api/auth'
 import { LoginPage } from './components/LoginPage'
 import { Dashboard } from './components/Dashboard'
+import { AnnouncementSheet } from './components/AnnouncementSheet'
 import { AdminConsole, isConsolePath } from './console/AdminConsole'
 import { LanguageProvider } from './i18n/LanguageContext'
 import './App.css'
@@ -24,6 +25,7 @@ function AppShell() {
         </div>
       )}
       <Dashboard />
+      <AnnouncementSheet />
     </>
   )
 }

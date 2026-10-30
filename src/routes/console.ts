@@ -4,8 +4,10 @@ import { requireAuth, requireAdmin, ADMIN_SESSION_COOKIE_NAME, SESSION_COOKIE_NA
 import { hashPassword } from '../lib/password'
 import { createSession, type AuthUser } from '../lib/auth-db'
 import { insertUserBrands, replaceUserBrands, validBrandIds, withBrands } from '../lib/brands'
+import { DISPLAY_MODES, TARGETS_USER, TARGET_TYPES, pushAnnouncement } from '../lib/announcements'
+import type { PushEnv } from '../lib/webpush'
 
-type Bindings = { DB: D1Database }
+type Bindings = { DB: D1Database } & PushEnv
 type Variables = { user: AuthUser }
 
 // Back-office console API. Every route requires an Admin session.
@@ -843,16 +845,33 @@ function parseWhen(v: unknown): string | null | undefined {
   return Number.isNaN(d.getTime()) ? undefined : d.toISOString().slice(0, 19).replace('T', ' ')
 }
 
-type Announcement = Content & { starts_at: string | null; ends_at: string | null }
+type Announcement = Content & {
+  starts_at: string | null
+  ends_at: string | null
+  target_type: string
+  target_id: number | null
+  display_mode: string
+}
 
-function parseAnnouncement(body: any, defaultPostedBy: string): Announcement | string {
+async function parseAnnouncement(db: D1Database, body: any, defaultPostedBy: string): Promise<Announcement | string> {
   const content = parseContent(body, defaultPostedBy)
   if (typeof content === 'string') return content
   const starts_at = parseWhen(body.starts_at)
   const ends_at = parseWhen(body.ends_at)
   if (starts_at === undefined || ends_at === undefined) return 'Invalid publish time'
   if (starts_at && ends_at && ends_at <= starts_at) return 'Take-down time must be after the publish time'
-  return { ...content, starts_at, ends_at }
+
+  const target_type = TARGET_TYPES.includes(body.target_type) ? body.target_type : 'all'
+  const display_mode = DISPLAY_MODES.includes(body.display_mode) ? body.display_mode : 'feed'
+  let target_id: number | null = null
+  if (target_type !== 'all') {
+    if (!Number.isInteger(body.target_id)) return 'Choose who the announcement is for'
+    target_id = body.target_id
+    const table = { brand: 'brands', role: 'roles', user: 'users' }[target_type as 'brand' | 'role' | 'user']
+    const found = await db.prepare(`SELECT 1 FROM ${table} WHERE id = ?`).bind(target_id).first()
+    if (!found) return `Chosen ${target_type} no longer exists`
+  }
+  return { ...content, starts_at, ends_at, target_type, target_id, display_mode }
 }
 
 const announcementTags = (db: D1Database, id: number, tags: Tag[]) => [
@@ -863,8 +882,21 @@ const announcementTags = (db: D1Database, id: number, tags: Tag[]) => [
 ]
 
 consoleRoutes.get('/announcements', async (c) => {
+  // Recipients = active users the announcement is addressed to; only meaningful for 'modal' ones.
   const [{ results: rows }, { results: tags }] = (await c.env.DB.batch([
-    c.env.DB.prepare(`SELECT id, title, body, title_zh, body_zh, accent, posted_by, posted_at, starts_at, ends_at FROM announcements ORDER BY posted_at DESC, id DESC`),
+    c.env.DB.prepare(
+      `SELECT a.id, a.title, a.body, a.title_zh, a.body_zh, a.accent, a.posted_by, a.posted_at, a.starts_at, a.ends_at,
+              a.target_type, a.target_id, a.display_mode,
+              CASE a.target_type
+                WHEN 'brand' THEN (SELECT label FROM brands WHERE id = a.target_id)
+                WHEN 'role' THEN (SELECT label FROM roles WHERE id = a.target_id)
+                WHEN 'user' THEN (SELECT name FROM users WHERE id = a.target_id)
+              END AS target_label,
+              (SELECT COUNT(*) FROM users u WHERE u.is_active = 1 AND ${TARGETS_USER}) AS recipient_count,
+              (SELECT COUNT(*) FROM announcement_acks k JOIN users u ON u.id = k.user_id
+                WHERE k.announcement_id = a.id AND u.is_active = 1 AND ${TARGETS_USER}) AS ack_count
+       FROM announcements a ORDER BY a.posted_at DESC, a.id DESC`
+    ),
     c.env.DB.prepare(`SELECT announcement_id, label, label_zh, variant FROM announcement_tags ORDER BY announcement_id, sort_order`),
   ])) as unknown as [{ results: { id: number }[] }, { results: any[] }]
 
@@ -873,29 +905,53 @@ consoleRoutes.get('/announcements', async (c) => {
   return c.json({ success: true, announcements: rows.map((a) => ({ ...a, tags: tagMap.get(a.id) ?? [] })) })
 })
 
+// Read / unread roster of a 'modal' announcement: every active recipient and when they acknowledged.
+consoleRoutes.get('/announcements/:id/readers', async (c) => {
+  const id = parseId(c.req.param('id'))
+  if (!id) return fail(c, 'Invalid id')
+  const { results } = await c.env.DB.prepare(
+    `SELECT u.id, u.name, u.title, r.label AS role_label, k.acked_at
+     FROM announcements a
+     JOIN users u ON u.is_active = 1 AND ${TARGETS_USER}
+     LEFT JOIN roles r ON r.id = u.role_id
+     LEFT JOIN announcement_acks k ON k.announcement_id = a.id AND k.user_id = u.id
+     WHERE a.id = ?
+     ORDER BY k.acked_at IS NULL DESC, u.name`
+  ).bind(id).all()
+  return c.json({ success: true, readers: results })
+})
+
+const COLUMNS = `title = ?, body = ?, title_zh = ?, body_zh = ?, accent = ?, posted_by = ?, posted_at = ?, starts_at = ?, ends_at = ?,
+  target_type = ?, target_id = ?, display_mode = ?`
+const values = (a: Announcement) =>
+  [a.title, a.body, a.title_zh, a.body_zh, a.accent, a.posted_by, a.posted_at, a.starts_at, a.ends_at, a.target_type, a.target_id, a.display_mode]
+
 consoleRoutes.post('/announcements', async (c) => {
   const user = c.get('user')
-  const a = parseAnnouncement(await c.req.json().catch(() => null), user.title || user.name)
+  const a = await parseAnnouncement(c.env.DB, await c.req.json().catch(() => null), user.title || user.name)
   if (typeof a === 'string') return fail(c, a)
 
   const res = await c.env.DB.prepare(
-    `INSERT INTO announcements (title, body, title_zh, body_zh, accent, posted_by, posted_at, starts_at, ends_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).bind(a.title, a.body, a.title_zh, a.body_zh, a.accent, a.posted_by, a.posted_at, a.starts_at, a.ends_at).run()
+    `INSERT INTO announcements (title, body, title_zh, body_zh, accent, posted_by, posted_at, starts_at, ends_at, target_type, target_id, display_mode)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(...values(a)).run()
   const id = res.meta.last_row_id
   await c.env.DB.batch(announcementTags(c.env.DB, id, a.tags))
-  return c.json({ success: true, id }, 201)
+
+  // Scheduled announcements are not pushed (nothing triggers them later); they still appear in-app once live.
+  const live = !a.starts_at || a.starts_at <= new Date().toISOString().slice(0, 19).replace('T', ' ')
+  const push = a.display_mode === 'modal' && live ? await pushAnnouncement(c.env, id).catch(() => null) : null
+  return c.json({ success: true, id, push }, 201)
 })
 
 consoleRoutes.patch('/announcements/:id', async (c) => {
   const id = parseId(c.req.param('id'))
   if (!id) return fail(c, 'Invalid id')
   const user = c.get('user')
-  const a = parseAnnouncement(await c.req.json().catch(() => null), user.title || user.name)
+  const a = await parseAnnouncement(c.env.DB, await c.req.json().catch(() => null), user.title || user.name)
   if (typeof a === 'string') return fail(c, a)
 
-  const res = await c.env.DB.prepare(
-    `UPDATE announcements SET title = ?, body = ?, title_zh = ?, body_zh = ?, accent = ?, posted_by = ?, posted_at = ?, starts_at = ?, ends_at = ? WHERE id = ?`
-  ).bind(a.title, a.body, a.title_zh, a.body_zh, a.accent, a.posted_by, a.posted_at, a.starts_at, a.ends_at, id).run()
+  const res = await c.env.DB.prepare(`UPDATE announcements SET ${COLUMNS} WHERE id = ?`).bind(...values(a), id).run()
   if (!res.meta.changes) return fail(c, 'Not found', 404)
   await c.env.DB.batch(announcementTags(c.env.DB, id, a.tags))
   return c.json({ success: true })

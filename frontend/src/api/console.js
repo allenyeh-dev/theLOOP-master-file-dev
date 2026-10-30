@@ -36,6 +36,7 @@ export const consoleApi = {
   listAnnouncements: () => request('/api/console/announcements'),
   createAnnouncement: (p) => request('/api/console/announcements', json('POST', p)),
   updateAnnouncement: (id, p) => request(`/api/console/announcements/${id}`, json('PATCH', p)),
+  announcementReaders: (id) => request(`/api/console/announcements/${id}/readers`),
   deleteAnnouncement: (id) => request(`/api/console/announcements/${id}`, { method: 'DELETE' }),
 
   listBrandNotices: () => request('/api/console/brand-notices'),

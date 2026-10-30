@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { requireAuth } from '../middleware/auth'
 import type { AuthUser } from '../lib/auth-db'
+import { TARGETS_USER } from '../lib/announcements'
 
 type Bindings = { DB: D1Database }
 type Variables = { user: AuthUser }
@@ -29,6 +30,33 @@ brandRoutes.get('/:id/notices', requireAuth, async (c) => {
      FROM brand_notices WHERE brand_id = ? ORDER BY posted_at DESC, id DESC`
   ).bind(id).all<{ tags: string }>()
   return c.json({ success: true, notices: results.map((n) => ({ ...n, tags: JSON.parse(n.tags) })) })
+})
+
+// Log of the pop-up announcements the caller has received that apply to this brand (company-wide, role or
+// personal ones, plus those aimed at this brand), newest first, minus the ones they removed from their log.
+brandRoutes.get('/:id/popups', requireAuth, async (c) => {
+  const id = Number(c.req.param('id'))
+  if (!Number.isInteger(id) || id < 1) return c.json({ success: false, error: 'Invalid id' }, 400)
+  const userId = c.get('user').id
+  const member = await c.env.DB.prepare(`SELECT 1 FROM user_brands WHERE user_id = ? AND brand_id = ?`).bind(userId, id).first()
+  if (!member) return c.json({ success: false, error: 'You do not have access to this brand' }, 403)
+
+  const { results } = await c.env.DB.prepare(
+    `SELECT a.id, a.title, a.body, a.title_zh, a.body_zh, a.accent, a.posted_by, a.posted_at, k.acked_at
+     FROM announcements a
+     JOIN users u ON u.id = ?1
+     LEFT JOIN announcement_acks k ON k.announcement_id = a.id AND k.user_id = u.id
+     WHERE a.display_mode = 'modal' AND (a.starts_at IS NULL OR a.starts_at <= datetime('now')) AND ${TARGETS_USER}
+       AND (a.target_type != 'brand' OR a.target_id = ?2)
+       AND k.hidden_at IS NULL
+     ORDER BY a.posted_at DESC, a.id DESC`
+  ).bind(userId, id).all<{ id: number }>()
+
+  const { results: tags } = await c.env.DB.prepare(
+    `SELECT announcement_id, label, label_zh, variant FROM announcement_tags ORDER BY announcement_id, sort_order`
+  ).all<{ announcement_id: number; label: string; label_zh: string | null; variant: string }>()
+
+  return c.json({ success: true, popups: results.map((a) => ({ ...a, tags: tags.filter((t) => t.announcement_id === a.id) })) })
 })
 
 /* ------------------------------ Ops Board ------------------------------ */
