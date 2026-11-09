@@ -45,6 +45,7 @@ export const consoleApi = {
   deleteBrandNotice: (id) => request(`/api/console/brand-notices/${id}`, { method: 'DELETE' }),
 
   listPlaybook: () => request('/api/console/playbook'),
+  playbookReads: (id) => request(`/api/console/playbook/${id}/reads`),
   createPlaybookSection: (p) => request('/api/console/playbook', json('POST', p)),
   updatePlaybookSection: (id, p) => request(`/api/console/playbook/${id}`, json('PATCH', p)),
   deletePlaybookSection: (id) => request(`/api/console/playbook/${id}`, { method: 'DELETE' }),

@@ -68,6 +68,39 @@ function SectionModal({ section, onClose, onSaved }) {
   )
 }
 
+function ReadsModal({ section, onClose }) {
+  const [tab, setTab] = useState('unread')
+  const reads = useLoader(() => consoleApi.playbookReads(section.id), (r) => r)
+  const rows = reads.data ? reads.data[tab] : []
+  return (
+    <Modal title={`Read status — ${preview(section) || 'Section'}`} onClose={onClose} footer={<button type="button" className="cs-btn" onClick={onClose}>Close</button>}>
+      {reads.error && <p className="cs-error">{reads.error}</p>}
+      {!reads.data && !reads.error && <p className="cs-muted">Loading…</p>}
+      {reads.data && (
+        <>
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+            <button type="button" className={`cs-btn ${tab === 'unread' ? 'cs-btn--primary' : ''}`} onClick={() => setTab('unread')}>Not read ({reads.data.unread.length})</button>
+            <button type="button" className={`cs-btn ${tab === 'read' ? 'cs-btn--primary' : ''}`} onClick={() => setTab('read')}>Read ({reads.data.read.length})</button>
+          </div>
+          <table className="cs-table">
+            <thead><tr><th>Name</th><th>Title</th><th>{tab === 'read' ? 'Read at' : 'Email'}</th></tr></thead>
+            <tbody>
+              {rows.map((u) => (
+                <tr key={u.id}>
+                  <td className="cs-strong">{u.name}</td>
+                  <td>{u.title || '—'}</td>
+                  <td>{tab === 'read' ? u.read_at : u.email}</td>
+                </tr>
+              ))}
+              {rows.length === 0 && <tr><td colSpan={3} className="cs-muted">{tab === 'read' ? 'Nobody has read this yet.' : 'Everyone has read this.'}</td></tr>}
+            </tbody>
+          </table>
+        </>
+      )}
+    </Modal>
+  )
+}
+
 export function PlaybookPage() {
   const list = useLoader(consoleApi.listPlaybook, (r) => r)
   const [modal, setModal] = useState(null)
@@ -108,7 +141,11 @@ export function PlaybookPage() {
                   <td>{s.kind === 'behavior' ? rule : ''}</td>
                   <td>{KINDS.find((k) => k[0] === s.kind)[1]}</td>
                   <td className={s.kind === 'heading' ? 'cs-muted' : 'cs-strong'}>{preview(s)}</td>
-                  <td>{s.kind === 'heading' ? '—' : `${s.read_count} / ${list.data.user_count}`}</td>
+                  <td>
+                    {s.kind === 'heading' ? '—' : (
+                      <button className="cs-link" onClick={() => setModal({ kind: 'reads', section: s })}>{s.read_count} / {list.data.user_count}</button>
+                    )}
+                  </td>
                   <td className="cs-col-actions">
                     <button className="cs-link" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
                     <button className="cs-link" onClick={() => move(i, 1)} disabled={i === all.length - 1} aria-label="Move down">↓</button>
@@ -124,6 +161,7 @@ export function PlaybookPage() {
       )}
 
       {modal?.kind === 'edit' && <SectionModal section={modal.section} onClose={() => setModal(null)} onSaved={saved} />}
+      {modal?.kind === 'reads' && <ReadsModal section={modal.section} onClose={() => setModal(null)} />}
       {modal?.kind === 'delete' && (
         <ConfirmDialog
           title="Delete section"

@@ -1051,6 +1051,24 @@ consoleRoutes.get('/playbook', async (c) => {
   return c.json({ success: true, sections: results, user_count: users[0]?.n ?? 0 })
 })
 
+// Who has / hasn't read one section (active accounts only).
+consoleRoutes.get('/playbook/:id/reads', async (c) => {
+  const id = Number(c.req.param('id'))
+  if (!Number.isInteger(id)) return c.json({ success: false, error: 'Invalid id' }, 400)
+  const { results } = await c.env.DB.prepare(
+    `SELECT u.id, u.name, u.email, u.title, r.read_at
+     FROM users u
+     LEFT JOIN playbook_reads r ON r.user_id = u.id AND r.section_id = ?
+     WHERE u.is_active = 1
+     ORDER BY u.name`
+  ).bind(id).all<{ id: number; name: string; email: string; title: string | null; read_at: string | null }>()
+  return c.json({
+    success: true,
+    read: results.filter((u) => u.read_at).sort((a, b) => (b.read_at as string).localeCompare(a.read_at as string)),
+    unread: results.filter((u) => !u.read_at),
+  })
+})
+
 consoleRoutes.post('/playbook', async (c) => {
   const s = parseSection(await c.req.json().catch(() => null))
   if (typeof s === 'string') return fail(c, s)
