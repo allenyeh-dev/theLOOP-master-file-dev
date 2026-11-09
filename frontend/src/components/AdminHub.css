@@ -64,3 +64,52 @@
   color: var(--text-muted);
   margin-top: 1px;
 }
+
+/* ---- Admin Hub sections ---- */
+.ah-stack { display: flex; flex-direction: column; gap: 10px; margin-bottom: 1.1rem; }
+.ah-stack.ah-tight { gap: 8px; }
+.ah-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+.ah-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; }
+
+.ah-recap-brand { display: flex; align-items: center; gap: 8px; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.1em; }
+.ah-recap-covers { font-family: 'Syne', sans-serif; font-size: 1.4rem; font-weight: 700; color: var(--text); margin: 6px 0 8px; }
+.ah-recap-text { margin: 0 0 12px; font-size: 0.8rem; line-height: 1.55; color: var(--text-muted); }
+.ah-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.ah-tag { font-size: 0.66rem; font-weight: 700; padding: 3px 9px; border-radius: 6px; border: 1px solid transparent; }
+.tone-green { color: #5aba7a; background: rgba(90, 186, 122, 0.12); border-color: rgba(90, 186, 122, 0.3); }
+.tone-amber { color: var(--accent); background: rgba(227, 168, 63, 0.12); border-color: rgba(227, 168, 63, 0.3); }
+.tone-red { color: #e07060; background: rgba(224, 112, 96, 0.12); border-color: rgba(224, 112, 96, 0.3); }
+.tone-muted { color: var(--text-muted); background: rgba(154, 145, 134, 0.1); border-color: var(--border); }
+
+.ah-row { display: flex; align-items: center; gap: 10px; padding: 13px 14px; }
+.ah-row-name { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+.ah-row-meta { margin-left: auto; font-size: 0.74rem; color: var(--text-muted); }
+.ah-link { background: none; border: 0; padding: 0; font: inherit; font-size: 0.78rem; font-weight: 700; color: var(--accent); cursor: pointer; }
+
+.ah-incident, .ah-log, .ah-today, .ah-platform { display: flex; align-items: flex-start; gap: 12px; }
+.ah-incident-body { flex: 1; min-width: 0; }
+.ah-title { font-size: 0.84rem; font-weight: 700; color: var(--text); line-height: 1.35; }
+.ah-meta { margin-top: 4px; font-size: 0.7rem; color: var(--text-muted); line-height: 1.45; }
+.ah-tier { flex: none; font-size: 0.7rem; font-weight: 800; padding: 6px 8px; border-radius: 8px; border: 1px solid transparent; }
+.ah-open { flex: none; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.06em; color: #5aba7a; background: rgba(90, 186, 122, 0.12); padding: 6px 8px; border-radius: 8px; }
+.ah-brand-tag { display: inline-block; font-size: 0.6rem; font-weight: 800; letter-spacing: 0.04em; padding: 1px 6px; margin-right: 6px; border: 1px solid; border-radius: 4px; background: transparent; }
+.ah-sop { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; padding: 0; background: none; border: 0; font: inherit; font-size: 0.7rem; color: var(--accent); cursor: pointer; text-align: left; }
+
+.ah-chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 4px; scrollbar-width: none; }
+.ah-chips::-webkit-scrollbar { display: none; }
+.ah-chip { flex: none; background: var(--panel); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 0.74rem; font-weight: 700; color: var(--text-muted); cursor: pointer; }
+.ah-chip.active { color: var(--accent); border-color: var(--accent); background: rgba(227, 168, 63, 0.08); }
+.ah-empty { font-size: 0.78rem; color: var(--text-muted); text-align: center; padding: 12px 0; margin: 0; }
+.ah-empty-card { font-size: 0.78rem; color: var(--text-muted); text-align: center; margin: 0 0 1.1rem; }
+
+.ah-today { align-items: center; }
+.ah-time { flex: none; min-width: 34px; font-size: 0.82rem; font-weight: 800; color: var(--text); }
+
+.ah-platform { align-items: center; }
+.ah-platform.is-review { border-color: rgba(224, 112, 96, 0.35); background: rgba(224, 112, 96, 0.04); }
+.ah-platform-icon { flex: none; color: var(--text-muted); display: flex; }
+.ah-platform.is-review .ah-platform-icon { color: #e07060; }
+.ah-badge { flex: none; font-size: 0.66rem; font-weight: 700; padding: 3px 9px; border-radius: 6px; }
+.badge-ok { color: #5aba7a; background: rgba(90, 186, 122, 0.12); }
+.badge-review { color: #e07060; background: rgba(224, 112, 96, 0.14); }
+.badge-logged { color: var(--accent); background: rgba(227, 168, 63, 0.12); }

@@ -1,6 +1,26 @@
 // Source-text keyed dictionaries. Home screens are written in English, SOP screens in Chinese,
 // so `zh` maps English -> 中文 and `en` maps 中文 -> English. Missing keys fall back to the source text.
 export const zh = {
+  // admin hub sections
+  'Night Recap — Jun 17': '昨夜回顧 — 6月17日',
+  '{n} covers': '{n} 位客人',
+  'Team Schedule — All Venues': '團隊班表 — 所有場館',
+  '{a}/{b} published': '已發佈 {a}/{b}',
+  View: '查看',
+  'Incidents — All Outlets': '事件 — 所有門市',
+  'Incidents — T2 & Above': '事件 — T2 以上',
+  'No incidents.': '沒有事件。',
+  'Daily Logs — All Outlets': '每日紀錄 — 所有門市',
+  'No logs for this day.': '本日沒有紀錄。',
+  'Today — All Outlets': '今日 — 所有門市',
+  'Platform — Today': '平台 — 今日',
+  'SOP & Recipe Flags': 'SOP 與食譜標記',
+  'No flags submitted yet.': '尚未有人提交標記。',
+  Normal: '正常',
+  Review: '待審查',
+  Logged: '已記錄',
+  Incidents: '事件',
+  'Shift Reports In': '已交班報告',
   // login / auth errors
   Email: '電子郵件',
   Password: '密碼',
