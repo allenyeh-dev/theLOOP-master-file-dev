@@ -13,6 +13,7 @@ import { playbookRoutes } from './routes/playbook'
 import { recipeRoutes, recipeViewRoutes } from './routes/recipes'
 import { taskRoutes } from './routes/tasks'
 import { scheduleRoutes } from './routes/schedule'
+import { logRoutes } from './routes/logs'
 import { requireAuth } from './middleware/auth'
 import type { AuthUser } from './lib/auth-db'
 
@@ -82,6 +83,7 @@ app.route('/api/recipe-library', recipeViewRoutes)
 app.route('/api/recipes', recipeRoutes)
 app.route('/api/tasks', taskRoutes)
 app.route('/api/schedule', scheduleRoutes)
+app.route('/api/logs', logRoutes)
 
 // Any authenticated account can see the staff directory, limited to people who share a brand with them.
 app.get('/api/staff', requireAuth, async (c) => {

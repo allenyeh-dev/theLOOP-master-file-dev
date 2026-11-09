@@ -10,6 +10,7 @@ import { BrandPicker } from './BrandPicker'
 import { BrandPage } from './BrandPage'
 import { TasksBoard } from './TasksBoard'
 import { ScheduleBoard } from './ScheduleBoard'
+import { LogsBoard } from './LogsBoard'
 import { AdminHub } from './AdminHub'
 import { ExecutiveOverview } from './ExecutiveOverview'
 import { AdminPanel } from './AdminPanel'
@@ -31,7 +32,7 @@ const PERMISSION_LABELS = {
 }
 
 // Brand tabs that have no content yet.
-const BRAND_TABS = { logs: 'LOGS', recipes: 'RECIPES' }
+const BRAND_TABS = { recipes: 'RECIPES' }
 
 const lastBrandKey = (userId) => `loop:lastBrand:${userId}`
 
@@ -159,6 +160,8 @@ export function Dashboard() {
           <RecipeApp canManage={canManageRecipes} />
         ) : view === 'tasks' && brand ? (
           <TasksBoard key={brand.id} brand={brand} />
+        ) : view === 'logs' && brand ? (
+          <LogsBoard key={brand.id} brand={brand} />
         ) : view === 'schedule' && brand ? (
           <ScheduleBoard key={brand.id} brand={brand} />
         ) : BRAND_TABS[view] ? (

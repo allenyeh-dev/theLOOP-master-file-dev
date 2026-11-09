@@ -1,0 +1,77 @@
+.logs-board { padding-bottom: 5rem; }
+.lg-types { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1.4rem; }
+.lg-type { display: flex; align-items: center; gap: 0.9rem; width: 100%; text-align: left; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 0.9rem 1rem; color: var(--text); font: inherit; cursor: pointer; }
+.lg-type-icon { flex: none; width: 2.6rem; height: 2.6rem; border-radius: 10px; background: var(--panel-alt); display: grid; place-items: center; font-size: 1.1rem; }
+.lg-type-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.2rem; }
+.lg-type-text strong { font-size: 0.95rem; }
+.lg-type-text small { font-size: 0.75rem; color: var(--text-muted); }
+.lg-chevron { color: var(--text-muted); font-size: 1.1rem; }
+.lg-head { display: flex; justify-content: space-between; align-items: center; }
+.lg-chips { display: flex; gap: 0.5rem; overflow-x: auto; margin: 0.4rem 0 0.8rem; padding-bottom: 0.2rem; scrollbar-width: none; cursor: grab; user-select: none; }
+.lg-chips::-webkit-scrollbar { display: none; }
+.lg-chips.is-dragging { cursor: grabbing; }
+.lg-chip { flex: none; background: var(--panel); border: 1px solid var(--border); color: var(--text-muted); border-radius: 999px; padding: 0.35rem 0.9rem; font: inherit; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+.lg-chip.is-active { border-color: var(--accent); color: var(--accent); }
+.lg-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; margin: 0.9rem 0; }
+.lg-row { display: flex; align-items: center; gap: 0.75rem; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--border); padding: 0.8rem 1rem; color: var(--text); font: inherit; cursor: pointer; }
+.lg-row:last-child { border-bottom: 0; }
+.lg-badge { flex: none; min-width: 3.2rem; text-align: center; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em; padding: 0.2rem 0.45rem; border-radius: 5px; background: rgba(120, 130, 150, 0.2); color: #aab; }
+.lg-badge--opening { background: rgba(76, 175, 106, 0.18); color: #4caf6a; }
+.lg-badge--closing { background: rgba(70, 140, 220, 0.2); color: #5aa0e6; }
+.lg-badge--incident { background: rgba(212, 72, 59, 0.2); color: #e5674f; }
+.lg-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+.lg-main strong { font-size: 0.9rem; font-weight: 600; overflow-wrap: anywhere; }
+.lg-main small { font-size: 0.75rem; color: var(--text-muted); }
+.lg-tier { flex: none; font-size: 0.65rem; font-weight: 700; color: var(--text-muted); }
+.lg-form { display: flex; flex-direction: column; gap: 0.6rem; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 0.9rem; margin-bottom: 0.9rem; }
+.lg-form h3 { margin: 0 0 0.2rem; font-size: 1rem; }
+.lg-form label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.75rem; color: var(--text-muted); }
+.lg-form label.lg-check { flex-direction: row; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text); }
+.lg-form input, .lg-form select, .lg-form textarea { background: var(--panel-alt); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.6rem; font: inherit; font-size: 0.85rem; min-width: 0; }
+.lg-form input[type='checkbox'] { accent-color: #4caf6a; width: 1.1rem; height: 1.1rem; padding: 0; }
+.lg-form textarea { min-height: 4.2rem; resize: vertical; }
+.lg-form-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+.lg-btn { background: var(--panel-alt); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 0.45rem 0.9rem; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+.lg-btn--primary { border-color: var(--accent); color: var(--accent); }
+.lg-btn--danger { color: #e5674f; margin-right: auto; }
+.lg-btn:disabled { opacity: 0.5; }
+.lg-detail dl { margin: 0.6rem 0 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.lg-detail dt { font-size: 0.7rem; color: var(--text-muted); letter-spacing: 0.05em; }
+.lg-detail dd { margin: 0.15rem 0 0; font-size: 0.88rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.lg-back { background: none; border: 0; color: var(--accent); font: inherit; font-size: 0.85rem; font-weight: 700; cursor: pointer; padding: 0.2rem 0; margin-bottom: 0.6rem; }
+
+.lg-form-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.4rem; }
+.lg-form-head h3 { margin: 0; font-size: 1rem; flex: 1; }
+.lg-icon-btn { background: none; border: 0; color: var(--text); font-size: 1.2rem; cursor: pointer; padding: 0.2rem 0.5rem; }
+.lg-icon-btn--round { border: 1px solid var(--border); border-radius: 50%; width: 2.2rem; height: 2.2rem; font-size: 0.9rem; background: var(--panel-alt); }
+.lg-cap, .lg-form p.lg-cap { font-size: 0.68rem; letter-spacing: 0.08em; color: var(--text-muted); margin: 0.3rem 0 0; }
+.lg-form input[readonly] { color: var(--text-muted); }
+.lg-rule { border: 0; border-top: 1px solid var(--border); width: 100%; margin: 0.3rem 0; }
+.lg-form label.lg-toggle { flex-direction: row; justify-content: space-between; align-items: center; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px; padding: 0.7rem 0.8rem; font-size: 0.85rem; color: var(--text); }
+.lg-form .lg-toggle input { appearance: none; -webkit-appearance: none; flex: none; width: 2.6rem; height: 1.5rem; border-radius: 999px; border: 0; padding: 0; background: #3a3a3a; position: relative; cursor: pointer; transition: background 0.15s; }
+.lg-form .lg-toggle input::after { content: ''; position: absolute; top: 0.18rem; left: 0.18rem; width: 1.14rem; height: 1.14rem; border-radius: 50%; background: #fff; transition: transform 0.15s; }
+.lg-form .lg-toggle input:checked { background: #4caf6a; }
+.lg-form .lg-toggle input:checked::after { transform: translateX(1.1rem); }
+.lg-btn--submit { flex: 1; background: var(--accent); border-color: var(--accent); color: #1a1a1a; padding: 0.85rem; font-size: 0.85rem; letter-spacing: 0.06em; border-radius: 10px; }
+
+.lg-tiers { display: flex; gap: 0.5rem; }
+.lg-tier-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.15rem; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 10px; padding: 0.7rem 0.3rem; color: var(--text-muted); font: inherit; cursor: pointer; }
+.lg-tier-btn small { font-size: 0.65rem; }
+.lg-tier-btn.is-active { color: var(--text); }
+.lg-tier-btn--t1.is-active { border-color: #e3a83f; background: rgba(227, 168, 63, 0.15); }
+.lg-tier-btn--t2.is-active { border-color: #e5874f; background: rgba(229, 135, 79, 0.15); }
+.lg-tier-btn--t3.is-active { border-color: #e5674f; background: rgba(212, 72, 59, 0.2); }
+
+.lg-sheet-backdrop { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, 0.55); display: flex; align-items: flex-end; justify-content: center; }
+.lg-sheet { width: 100%; max-width: 32rem; max-height: 90vh; overflow-y: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 18px 18px 0 0; padding: 0.6rem 1rem calc(1rem + env(safe-area-inset-bottom)); }
+.lg-sheet-grab { width: 2.4rem; height: 0.28rem; border-radius: 999px; background: var(--border); margin: 0 auto 0.9rem; }
+.lg-sheet-head { display: flex; flex-direction: column; gap: 0.3rem; padding: 0.6rem 0 0.9rem; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-bottom: 0.4rem; }
+.lg-sheet-head strong { font-size: 1rem; }
+.lg-sheet-head small { font-size: 0.75rem; color: var(--text-muted); }
+.lg-sheet-head p { margin: 0.2rem 0 0; font-size: 0.82rem; color: var(--text-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lg-action { display: flex; align-items: center; gap: 0.9rem; width: 100%; text-align: left; background: none; border: 0; padding: 0.8rem 0.2rem; color: var(--text); font: inherit; cursor: pointer; }
+.lg-action-icon { flex: none; width: 2.2rem; text-align: center; font-size: 1.05rem; }
+.lg-action--warn strong { color: #e3a83f; }
+.lg-action--danger strong { color: #e5674f; }
+.lg-action:disabled { opacity: 0.5; }
+.lg-sheet-cancel { width: 100%; margin-top: 0.8rem; background: none; border: 1px solid var(--border); border-radius: 12px; padding: 0.9rem; color: var(--text-muted); font: inherit; font-weight: 700; cursor: pointer; }
