@@ -9,6 +9,7 @@ import { AnnouncementsPage } from './AnnouncementsPage'
 import { BrandNoticesPage } from './BrandNoticesPage'
 import { SopManagePage } from './SopManagePage'
 import { PlaybookPage } from './PlaybookPage'
+import { AlertSettingsPage } from './AlertSettingsPage'
 import { RecipeManagePage } from './RecipeManagePage'
 import './console.css'
 
@@ -22,6 +23,7 @@ const TABS = [
   { id: 'sop', label: 'SOP', Page: SopManagePage },
   { id: 'recipes', label: 'Recipes', Page: RecipeManagePage },
   { id: 'playbook', label: 'Playbook', Page: PlaybookPage },
+  { id: 'alerts', label: 'Alerts', Page: AlertSettingsPage },
   { id: 'roles', label: 'Roles', Page: RolesPage },
   { id: 'permissions', label: 'Permissions', Page: PermissionsPage },
 ]

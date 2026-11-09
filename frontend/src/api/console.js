@@ -3,6 +3,9 @@ import { request } from './client'
 const json = (method, body) => ({ method, body: JSON.stringify(body) })
 
 export const consoleApi = {
+  getAlertSettings: () => request('/api/console/alert-settings'),
+  updateAlertSettings: (p) => request('/api/console/alert-settings', json('PUT', p)),
+
   listUsers: () => request('/api/console/users'),
   createUser: (p) => request('/api/console/users', json('POST', p)),
   updateUser: (id, p) => request(`/api/console/users/${id}`, json('PATCH', p)),

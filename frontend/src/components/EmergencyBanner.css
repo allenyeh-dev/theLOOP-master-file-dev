@@ -1,0 +1,6 @@
+.eb-wrap { display: flex; flex-direction: column; gap: 1px; background: #c1283a; }
+.eb-item { display: flex; align-items: center; gap: 0.7rem; padding: 0.6rem 1rem; color: #fff; }
+.eb-text { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 0.8rem; }
+.eb-text strong { font-size: 0.88rem; }
+.eb-text span { opacity: 0.9; overflow-wrap: anywhere; }
+.eb-item button { background: rgba(255, 255, 255, 0.18); border: 1px solid rgba(255, 255, 255, 0.5); color: #fff; border-radius: 6px; padding: 0.35rem 0.7rem; font-size: 0.75rem; font-weight: 700; cursor: pointer; white-space: nowrap; }

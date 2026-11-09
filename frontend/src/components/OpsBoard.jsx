@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createServiceAlert } from '../api/alerts'
 import { fetchOpsBoard, saveOpsBoard } from '../api/data'
 import { useLang } from '../i18n/LanguageContext'
 import { DateStepper } from './DateStepper'
+import { Toast } from './Toast'
 import './OpsBoard.css'
 
 const TAG_KINDS = [
@@ -207,11 +209,81 @@ function EditModal({ board, onClose, onSave }) {
   )
 }
 
+const TIERS = [['T1', 'Minor'], ['T2', 'Moderate'], ['T3', 'Serious']]
+const ALERT_CATEGORIES = ['Equipment Issue', 'Guest Complaint', 'Staffing Issue', 'Safety / Security', 'Supply Shortage', 'Other']
+
+function ServiceAlertModal({ onClose, onSubmit }) {
+  const { t } = useLang()
+  const [tier, setTier] = useState('T1')
+  const [category, setCategory] = useState(ALERT_CATEGORIES[0])
+  const [description, setDescription] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  async function submit(e) {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    try {
+      await onSubmit({ tier, category, description: description.trim() })
+    } catch (err) {
+      setError(err.message)
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="ob-backdrop" onMouseDown={onClose}>
+      <form className="ob-modal sa-modal" onMouseDown={(e) => e.stopPropagation()} onSubmit={submit}>
+        <header className="sa-head">
+          <div>
+            <h2>🔔 {t('Service Alert')}</h2>
+            <p>{t('Flag a service issue or request for the ops team.')}</p>
+          </div>
+        </header>
+        <div className="sa-section">
+          <p className="section-label">{t('INCIDENT TIER')}</p>
+          <div className="sa-tiers">
+            {TIERS.map(([key, label]) => (
+              <button key={key} type="button" className={`sa-tier sa-tier--${key} ${tier === key ? 'is-active' : ''}`} onClick={() => setTier(key)} aria-pressed={tier === key}>
+                <strong>{key}</strong><span>{t(label)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="sa-section">
+          <p className="section-label">{t('CATEGORY')}</p>
+          <select value={category} onChange={(e) => setCategory(e.target.value)}>
+            {ALERT_CATEGORIES.map((c) => <option key={c} value={c}>{t(c)}</option>)}
+          </select>
+        </div>
+        <div className="sa-section">
+          <p className="section-label">{t('DESCRIPTION')}</p>
+          <textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('Describe the service issue…')} maxLength={1000} />
+          {error && <p className="error-text">{error}</p>}
+        </div>
+        <footer className="sa-foot">
+          <button type="button" className="ob-btn" onClick={onClose} disabled={busy}>{t('Cancel')}</button>
+          <button type="submit" className="ob-btn sa-submit" disabled={busy}>{t('Submit Alert')}</button>
+        </footer>
+      </form>
+    </div>
+  )
+}
+
 export function OpsBoard({ brand }) {
   const { lang, t } = useLang()
   const [offset, setOffset] = useState(0)
   const [state, setState] = useState({ loading: true, error: null, data: null })
   const [editing, setEditing] = useState(false)
+  const [alerting, setAlerting] = useState(false)
+  const [toast, setToast] = useState(null)
   const date = isoForOffset(offset)
 
   const load = useCallback(() => {
@@ -227,6 +299,13 @@ export function OpsBoard({ brand }) {
     await saveOpsBoard(brand.id, date, board)
     setEditing(false)
     load()
+  }
+
+  async function submitAlert(alert) {
+    await createServiceAlert({ ...alert, brand_id: brand.id, log_date: isoForOffset(0) })
+    setAlerting(false)
+    setToast(t('Alert sent'))
+    window.setTimeout(() => setToast(null), 2000)
   }
 
   const board = state.data?.board
@@ -284,6 +363,10 @@ export function OpsBoard({ brand }) {
           <Reservations items={board.reservations} />
         </>
       )}
+
+      <button type="button" className="sa-fab" onClick={() => setAlerting(true)}>🔔 {t('Service')}</button>
+      {alerting && <ServiceAlertModal onClose={() => setAlerting(false)} onSubmit={submitAlert} />}
+      <Toast message={toast} />
 
       {editing && board && <EditModal board={board} onClose={() => setEditing(false)} onSave={save} />}
     </div>

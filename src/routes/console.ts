@@ -6,6 +6,7 @@ import { createSession, PERSONAL_PERMISSIONS, type AuthUser } from '../lib/auth-
 import { insertUserBrands, replaceUserBrands, validBrandIds, withBrands } from '../lib/brands'
 import { DISPLAY_MODES, TARGETS_USER, TARGET_TYPES, pushAnnouncement } from '../lib/announcements'
 import type { PushEnv } from '../lib/webpush'
+import { MIN_TIER_VALUES, minServiceTier } from '../lib/alerts'
 
 type Bindings = { DB: D1Database } & PushEnv
 type Variables = { user: AuthUser }
@@ -1144,4 +1145,19 @@ consoleRoutes.delete('/playbook/:id', async (c) => {
   const res = await c.env.DB.prepare(`DELETE FROM playbook_sections WHERE id = ?`).bind(id).run()
   if (!res.meta.changes) return fail(c, 'Not found', 404)
   return c.json({ success: true })
+})
+
+// Lowest service-alert tier that notifies Admin / Executive ('off' = never). Every service alert is still logged.
+consoleRoutes.get('/alert-settings', async (c) => {
+  return c.json({ success: true, service_min_tier: await minServiceTier(c.env.DB) })
+})
+
+consoleRoutes.put('/alert-settings', async (c) => {
+  const b: any = await c.req.json().catch(() => null)
+  if (!MIN_TIER_VALUES.includes(b?.service_min_tier)) return c.json({ success: false, error: 'Invalid tier' }, 400)
+  await c.env.DB.prepare(
+    `INSERT INTO app_settings (key, value) VALUES ('service_alert_min_tier', ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`
+  ).bind(b.service_min_tier).run()
+  return c.json({ success: true, service_min_tier: b.service_min_tier })
 })

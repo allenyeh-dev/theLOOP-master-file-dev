@@ -20,6 +20,10 @@ import { SopShortcut } from './SopShortcut'
 import { PlaybookCard } from './PlaybookCard'
 import { PlaybookPage } from './PlaybookPage'
 import { RecipeApp } from '../sop/RecipeApp'
+import { createEmergencyAlert } from '../api/alerts'
+import { EmergencyBanner } from './EmergencyBanner'
+import { Toast } from './Toast'
+import { EmergencyAlertSheet } from './EmergencyAlertSheet'
 import './Dashboard.css'
 
 const PERMISSION_LABELS = {
@@ -48,6 +52,8 @@ export function Dashboard() {
   const { user, logout, hasPermission } = useAuth()
   const { t } = useLang()
   const [roles, setRoles] = useState([])
+  const [emergencyOpen, setEmergencyOpen] = useState(false)
+  const [emergencyToast, setEmergencyToast] = useState(null)
   const [viewAsRoleKey, setViewAsRoleKey] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [adminPanelOpen, setAdminPanelOpen] = useState(false)
@@ -113,6 +119,13 @@ export function Dashboard() {
 
   if (!user) return null
 
+  async function submitEmergency(alert) {
+    await createEmergencyAlert({ ...alert, brand_id: inBrand && brand ? brand.id : null })
+    setEmergencyOpen(false)
+    setEmergencyToast(t('Alert sent'))
+    window.setTimeout(() => setEmergencyToast(null), 2000)
+  }
+
   const previewedRole =
     viewAsRoleKey && viewAsRoleKey !== user.role.key
       ? roles.find((r) => r.key === viewAsRoleKey) || null
@@ -121,6 +134,8 @@ export function Dashboard() {
   const badgeSource = previewedRole ? previewedRole.label : user.role.label
   const effectiveRoleKey = previewedRole ? previewedRole.key : user.role.key
   // FOH never uses recipes: the tab stays hidden for them whatever permissions they hold.
+  // Chef, Manager and GM can raise an emergency alert from the top bar.
+  const canRaiseEmergency = ['chef', 'manager', 'gm'].includes(effectiveRoleKey)
   const recipesHidden = effectiveRoleKey === 'foh'
   const canManageRecipes = !recipesHidden && effectivePermissions.includes('recipe.manage')
 
@@ -140,7 +155,12 @@ export function Dashboard() {
         showSop
         showRecipes={!recipesHidden}
         onNavigate={navigate}
+        onEmergency={canRaiseEmergency ? () => setEmergencyOpen(true) : null}
       />
+
+      {emergencyOpen && <EmergencyAlertSheet onClose={() => setEmergencyOpen(false)} onSubmit={submitEmergency} />}
+      <Toast message={emergencyToast} />
+      {['admin', 'executive'].includes(user.role.key) && <EmergencyBanner />}
 
       {menuOpen && (
         <ProfileMenu

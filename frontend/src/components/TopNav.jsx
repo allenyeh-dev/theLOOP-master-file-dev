@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { PersonIcon } from './icons'
+import { AlertTriangleIcon, PersonIcon } from './icons'
 import { useLang } from '../i18n/LanguageContext'
 import './TopNav.css'
 
@@ -17,6 +17,7 @@ export function TopNav({
   showRecipes,
   brandName,
   brandLogo,
+  onEmergency,
 }) {
   const { t } = useLang()
   const [logoFailed, setLogoFailed] = useState(false)
@@ -66,10 +67,17 @@ export function TopNav({
           <div className="logo">THE LOOP</div>
         )}
 
-        <button type="button" className="avatar-button" onClick={onToggleMenu} aria-label={t('Account menu')}>
-          <PersonIcon />
-          {badgeLabel && <span className="avatar-badge">{badgeLabel}</span>}
-        </button>
+        <div className="topnav-actions">
+          {onEmergency && (
+            <button type="button" className="avatar-button alert-button" onClick={onEmergency} aria-label={t('Emergency Alert')}>
+              <AlertTriangleIcon />
+            </button>
+          )}
+          <button type="button" className="avatar-button" onClick={onToggleMenu} aria-label={t('Account menu')}>
+            <PersonIcon />
+            {badgeLabel && <span className="avatar-badge">{badgeLabel}</span>}
+          </button>
+        </div>
       </div>
 
       {brandName && (
