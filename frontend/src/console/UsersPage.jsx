@@ -3,10 +3,11 @@ import { useAuth } from '../context/AuthContext'
 import { consoleApi } from '../api/console'
 import { ConfirmDialog, Field, Modal, PageHead, useLoader, useSubmit } from './ui'
 
-// Granted to specific people, not to whole roles (admins always have both).
+// Granted to specific people, not to whole roles (admins always have all).
 const PERSONAL = [
   { key: 'sop.manage', label: 'SOP', hint: 'Create, edit and submit SOPs. Everyone else can only read the SOPs of their own brands and departments.' },
   { key: 'recipe.manage', label: 'Recipes', hint: 'Create, edit and publish recipes of their own brands. Everyone else can only read them.' },
+  { key: 'schedule.manage', label: 'Schedule', hint: 'Build, publish and edit the staff schedule of their own brands. Everyone else only sees published days.' },
 ]
 
 function UserModal({ user, roles, brands, departments, onClose, onSaved }) {

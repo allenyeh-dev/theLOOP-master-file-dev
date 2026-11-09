@@ -61,7 +61,7 @@ async function withDepartments<T extends { id: number }>(db: D1Database, users: 
   return users.map((u) => ({ ...u, departments: byUser.get(u.id) ?? [] }))
 }
 
-// Personal permissions (sop.manage, recipe.manage) are granted per person, never per role.
+// Personal permissions (sop.manage, recipe.manage, schedule.manage) are granted per person, never per role.
 function validPersonalKeys(v: unknown): string[] | null {
   if (v === undefined || v === null) return []
   if (!Array.isArray(v) || !v.every((k) => PERSONAL_PERMISSIONS.includes(k))) return null

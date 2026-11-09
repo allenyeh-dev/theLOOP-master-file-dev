@@ -67,7 +67,7 @@ export async function getPermissionsForRole(db: D1Database, roleId: number): Pro
 }
 
 // Granted per person (user_permissions), not per role. Admins always have them.
-export const PERSONAL_PERMISSIONS = ['sop.manage', 'recipe.manage']
+export const PERSONAL_PERMISSIONS = ['sop.manage', 'recipe.manage', 'schedule.manage']
 
 // Role permissions plus the person's own grants.
 export async function getPermissionsForUser(db: D1Database, userId: number, roleId: number | null, roleKey: string | null): Promise<string[]> {
