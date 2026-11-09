@@ -3,6 +3,12 @@ import { useAuth } from '../context/AuthContext'
 import { consoleApi } from '../api/console'
 import { ConfirmDialog, Field, Modal, PageHead, useLoader, useSubmit } from './ui'
 
+// Granted to specific people, not to whole roles (admins always have both).
+const PERSONAL = [
+  { key: 'sop.manage', label: 'SOP', hint: 'Create, edit and submit SOPs. Everyone else can only read the SOPs of their own brands and departments.' },
+  { key: 'recipe.manage', label: 'Recipes', hint: 'Create, edit and publish recipes of their own brands. Everyone else can only read them.' },
+]
+
 function UserModal({ user, roles, brands, departments, onClose, onSaved }) {
   const { user: me } = useAuth()
   const editing = Boolean(user)
@@ -13,6 +19,7 @@ function UserModal({ user, roles, brands, departments, onClose, onSaved }) {
     role_id: user?.role_id ? String(user.role_id) : '',
     brand_ids: new Set((user?.brands ?? []).map((b) => b.id)),
     department_ids: new Set((user?.departments ?? []).map((d) => d.id)),
+    personal: new Set(user?.personal_permissions ?? []),
     password: '',
     is_active: user ? Boolean(user.is_active) : true,
   })
@@ -26,7 +33,7 @@ function UserModal({ user, roles, brands, departments, onClose, onSaved }) {
   const isSelf = editing && user.id === me.id
 
   const { busy, error, submit } = useSubmit(async () => {
-    const payload = { name: form.name, email: form.email, title: form.title, is_active: form.is_active, brand_ids: [...form.brand_ids], department_ids: [...form.department_ids] }
+    const payload = { name: form.name, email: form.email, title: form.title, is_active: form.is_active, brand_ids: [...form.brand_ids], department_ids: [...form.department_ids], personal_permissions: [...form.personal] }
     payload.role_id = Number(form.role_id)
     if (form.brand_ids.size === 0) throw new Error('Select at least one brand')
     if (form.password) payload.password = form.password
@@ -79,6 +86,23 @@ function UserModal({ user, roles, brands, departments, onClose, onSaved }) {
             ))}
           </div>
           <span className="cs-field-hint">Roles with the sop.view_all permission see every SOP. Everyone else only sees SOPs of these departments plus general ones; with none selected, general SOPs only.</span>
+        </div>
+        <div className="cs-field">
+          <span className="cs-field-label">Can create &amp; edit ({form.personal.size}/{PERSONAL.length})</span>
+          <div className="cs-perm-grid">
+            {PERSONAL.map((p) => (
+              <label key={p.key} className="cs-perm">
+                <input type="checkbox" checked={form.personal.has(p.key)} onChange={() => {
+                  const next = new Set(form.personal)
+                  if (next.has(p.key)) next.delete(p.key)
+                  else next.add(p.key)
+                  setForm({ ...form, personal: next })
+                }} />
+                <span><code>{p.key}</code><small>{p.hint}</small></span>
+              </label>
+            ))}
+          </div>
+          <span className="cs-field-hint">Set per person, not per role. Admins can always do both.</span>
         </div>
         <div className="cs-field">
           <span className="cs-field-label">Brands ({form.brand_ids.size}/{brands.length})</span>
@@ -175,7 +199,13 @@ export function UsersPage() {
                   <td className="cs-strong">{u.name}{u.id === me.id && <span className="cs-you">you</span>}</td>
                   <td>{u.email}</td>
                   <td>{u.title || '—'}</td>
-                  <td><span className="cs-tag">{u.role_label ?? 'No role'}</span></td>
+                  <td>
+                    <span className="cs-tag">{u.role_label ?? 'No role'}</span>
+                    {/* Personal permissions: who may create / edit SOPs and recipes. */}
+                    <div className="cs-chips" style={{ marginTop: '0.35rem' }}>
+                      {PERSONAL.filter((p) => u.role_key === 'admin' || u.personal_permissions.includes(p.key)).map((p) => <span key={p.key} className="cs-tag cs-tag--ok" title={p.key}>{p.label} ✎</span>)}
+                    </div>
+                  </td>
                   <td>
                     <div className="cs-chips">
                       {u.brands.map((b) => <span key={b.id} className="cs-tag cs-tag--muted">{b.label}</span>)}

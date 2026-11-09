@@ -59,14 +59,14 @@ export function PermissionsPage() {
       {perms.data && (
         <table className="cs-table">
           <thead>
-            <tr><th>Key</th><th>Description</th><th>Roles</th><th className="cs-col-actions">Actions</th></tr>
+            <tr><th>Key</th><th>Description</th><th>Granted to</th><th className="cs-col-actions">Actions</th></tr>
           </thead>
           <tbody>
             {perms.data.map((p) => (
               <tr key={p.id}>
                 <td><code>{p.key}</code>{p.is_system && <span className="cs-tag cs-tag--muted">system</span>}</td>
                 <td>{p.description}</td>
-                <td>{p.role_count}</td>
+                <td>{p.personal ? <><span className="cs-tag cs-tag--muted">per person</span> {p.user_count} {p.user_count === 1 ? 'person' : 'people'}</> : `${p.role_count} role(s)`}</td>
                 <td className="cs-col-actions">
                   <button className="cs-link" onClick={() => setModal({ kind: 'edit', permission: p })}>Edit</button>
                   <button className="cs-link cs-link--danger" onClick={() => setModal({ kind: 'delete', permission: p })} disabled={p.is_system}>Delete</button>

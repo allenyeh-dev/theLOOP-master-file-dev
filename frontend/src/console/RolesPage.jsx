@@ -119,7 +119,7 @@ export function RolesPage() {
       )}
 
       {modal?.kind === 'edit' && (
-        <RoleModal role={modal.role} permissions={perms.data} onClose={() => setModal(null)} onSaved={() => { setModal(null); reload() }} />
+        <RoleModal role={modal.role} permissions={perms.data.filter((p) => !p.personal)} onClose={() => setModal(null)} onSaved={() => { setModal(null); reload() }} />
       )}
       {modal?.kind === 'delete' && (
         <ConfirmDialog

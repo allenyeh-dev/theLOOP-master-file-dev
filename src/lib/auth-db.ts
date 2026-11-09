@@ -66,6 +66,21 @@ export async function getPermissionsForRole(db: D1Database, roleId: number): Pro
   return results.map((r) => r.key)
 }
 
+// Granted per person (user_permissions), not per role. Admins always have them.
+export const PERSONAL_PERMISSIONS = ['sop.manage', 'recipe.manage']
+
+// Role permissions plus the person's own grants.
+export async function getPermissionsForUser(db: D1Database, userId: number, roleId: number | null, roleKey: string | null): Promise<string[]> {
+  const perms = new Set(roleId ? await getPermissionsForRole(db, roleId) : [])
+  const { results } = await db
+    .prepare(`SELECT p.key FROM user_permissions up JOIN permissions p ON p.id = up.permission_id WHERE up.user_id = ?`)
+    .bind(userId)
+    .all<{ key: string }>()
+  for (const r of results) perms.add(r.key)
+  if (roleKey === 'admin') for (const k of PERSONAL_PERMISSIONS) perms.add(k)
+  return [...perms]
+}
+
 export async function getBrandsForUser(db: D1Database, userId: number): Promise<Brand[]> {
   const { results } = await db
     .prepare(

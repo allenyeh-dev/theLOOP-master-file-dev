@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { getCookie, setCookie } from 'hono/cookie'
 import { requireAuth, requireAdmin, ADMIN_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME } from '../middleware/auth'
 import { hashPassword } from '../lib/password'
-import { createSession, type AuthUser } from '../lib/auth-db'
+import { createSession, PERSONAL_PERMISSIONS, type AuthUser } from '../lib/auth-db'
 import { insertUserBrands, replaceUserBrands, validBrandIds, withBrands } from '../lib/brands'
 import { DISPLAY_MODES, TARGETS_USER, TARGET_TYPES, pushAnnouncement } from '../lib/announcements'
 import type { PushEnv } from '../lib/webpush'
@@ -23,10 +23,10 @@ const SYSTEM_PERMISSION_KEYS = [
   'schedule.manage',
   'inventory.manage',
   'kitchen.manage',
-  'sop.submit',
   'sop.approve',
   'sop.manage',
   'sop.view_all',
+  'recipe.manage',
 ]
 const ROLE_KEY_RE = /^[a-z][a-z0-9_]{1,31}$/
 const BRAND_KEY_RE = /^[a-z][a-z0-9_]{1,31}$/
@@ -61,6 +61,27 @@ async function withDepartments<T extends { id: number }>(db: D1Database, users: 
   return users.map((u) => ({ ...u, departments: byUser.get(u.id) ?? [] }))
 }
 
+// Personal permissions (sop.manage, recipe.manage) are granted per person, never per role.
+function validPersonalKeys(v: unknown): string[] | null {
+  if (v === undefined || v === null) return []
+  if (!Array.isArray(v) || !v.every((k) => PERSONAL_PERMISSIONS.includes(k))) return null
+  return [...new Set(v as string[])]
+}
+
+const replaceUserPermissions = (db: D1Database, userId: number, keys: string[]) => [
+  db.prepare(`DELETE FROM user_permissions WHERE user_id = ?`).bind(userId),
+  ...keys.map((k) => db.prepare(`INSERT INTO user_permissions (user_id, permission_id) SELECT ?, id FROM permissions WHERE key = ?`).bind(userId, k)),
+]
+
+async function withPersonalPermissions<T extends { id: number }>(db: D1Database, users: T[]) {
+  const { results } = await db
+    .prepare(`SELECT up.user_id, p.key FROM user_permissions up JOIN permissions p ON p.id = up.permission_id`)
+    .all<{ user_id: number; key: string }>()
+  const byUser = new Map<number, string[]>()
+  for (const r of results) byUser.set(r.user_id, [...(byUser.get(r.user_id) ?? []), r.key])
+  return users.map((u) => ({ ...u, personal_permissions: byUser.get(u.id) ?? [] }))
+}
+
 const fail = (c: any, error: string, status = 400) => c.json({ success: false, error }, status)
 const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
 const parseId = (v: string) => {
@@ -86,7 +107,7 @@ consoleRoutes.get('/users', async (c) => {
      FROM users u LEFT JOIN roles r ON r.id = u.role_id
      ORDER BY u.id`
   ).all<{ id: number }>()
-  return c.json({ success: true, users: await withDepartments(c.env.DB, await withBrands(c.env.DB, results)) })
+  return c.json({ success: true, users: await withPersonalPermissions(c.env.DB, await withDepartments(c.env.DB, await withBrands(c.env.DB, results))) })
 })
 
 // "Log in as": the browser gets a session for the target user; the admin's own session id is kept in a
@@ -125,6 +146,8 @@ consoleRoutes.post('/users', async (c) => {
   if (!brandIds) return fail(c, 'Select at least one valid brand')
   const departmentIds = await validDepartmentIds(c.env.DB, body?.department_ids)
   if (!departmentIds) return fail(c, 'Invalid department')
+  const personalKeys = validPersonalKeys(body?.personal_permissions)
+  if (!personalKeys) return fail(c, 'Invalid personal permission')
 
   try {
     const result = await c.env.DB.prepare(
@@ -133,7 +156,7 @@ consoleRoutes.post('/users', async (c) => {
       .bind(name, email, await hashPassword(password), title, role.id, body?.is_active === false ? 0 : 1)
       .run()
     const userId = result.meta.last_row_id
-    await c.env.DB.batch([...insertUserBrands(c.env.DB, userId, brandIds), ...replaceUserDepartments(c.env.DB, userId, departmentIds)])
+    await c.env.DB.batch([...insertUserBrands(c.env.DB, userId, brandIds), ...replaceUserDepartments(c.env.DB, userId, departmentIds), ...replaceUserPermissions(c.env.DB, userId, personalKeys)])
     return c.json({ success: true, id: userId }, 201)
   } catch (err) {
     return fail(c, isUnique(err) ? 'An account with that email already exists' : 'Failed to create account', 409)
@@ -203,12 +226,18 @@ consoleRoutes.patch('/users/:id', async (c) => {
     departmentIds = await validDepartmentIds(c.env.DB, body.department_ids)
     if (!departmentIds) return fail(c, 'Invalid department')
   }
-  if (updates.length === 0 && !brandIds && !departmentIds) return fail(c, 'No changes provided')
+  let personalKeys: string[] | null = null
+  if (body.personal_permissions !== undefined) {
+    personalKeys = validPersonalKeys(body.personal_permissions)
+    if (!personalKeys) return fail(c, 'Invalid personal permission')
+  }
+  if (updates.length === 0 && !brandIds && !departmentIds && !personalKeys) return fail(c, 'No changes provided')
 
   const stmts: D1PreparedStatement[] = []
   if (updates.length) stmts.push(c.env.DB.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).bind(...values, id))
   if (brandIds) stmts.push(...replaceUserBrands(c.env.DB, id, brandIds))
   if (departmentIds) stmts.push(...replaceUserDepartments(c.env.DB, id, departmentIds))
+  if (personalKeys) stmts.push(...replaceUserPermissions(c.env.DB, id, personalKeys))
   if (resetSessions) stmts.push(c.env.DB.prepare(`DELETE FROM sessions WHERE user_id = ?`).bind(id))
   try {
     await c.env.DB.batch(stmts)
@@ -537,7 +566,14 @@ async function validPermissionIds(db: D1Database, ids: unknown): Promise<number[
     .prepare(`SELECT id FROM permissions WHERE id IN (${unique.map(() => '?').join(',')})`)
     .bind(...unique)
     .all<{ id: number }>()
-  return results.length === unique.length ? unique : null
+  if (results.length !== unique.length) return null
+  // Personal permissions cannot be attached to a role; they are set on each person.
+  const { results: personal } = await db
+    .prepare(`SELECT id FROM permissions WHERE key IN (${PERSONAL_PERMISSIONS.map(() => '?').join(',')})`)
+    .bind(...PERSONAL_PERMISSIONS)
+    .all<{ id: number }>()
+  const skip = new Set(personal.map((p) => p.id))
+  return unique.filter((id) => !skip.has(id))
 }
 
 consoleRoutes.get('/roles', async (c) => {
@@ -649,12 +685,13 @@ consoleRoutes.delete('/roles/:id', async (c) => {
 consoleRoutes.get('/permissions', async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT p.id, p.key, p.description,
-            (SELECT COUNT(*) FROM role_permissions rp WHERE rp.permission_id = p.id) as role_count
+            (SELECT COUNT(*) FROM role_permissions rp WHERE rp.permission_id = p.id) as role_count,
+            (SELECT COUNT(*) FROM user_permissions up WHERE up.permission_id = p.id) as user_count
      FROM permissions p ORDER BY p.id`
-  ).all<{ id: number; key: string; description: string; role_count: number }>()
+  ).all<{ id: number; key: string; description: string; role_count: number; user_count: number }>()
   return c.json({
     success: true,
-    permissions: results.map((p) => ({ ...p, is_system: SYSTEM_PERMISSION_KEYS.includes(p.key) })),
+    permissions: results.map((p) => ({ ...p, is_system: SYSTEM_PERMISSION_KEYS.includes(p.key), personal: PERSONAL_PERMISSIONS.includes(p.key) })),
   })
 })
 

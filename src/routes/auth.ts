@@ -7,7 +7,7 @@ import {
   findSessionUser,
   findUserByEmail,
   getBrandsForUser,
-  getPermissionsForRole,
+  getPermissionsForUser,
   getDepartmentsForUser,
   toAuthUser,
   type AuthUser,
@@ -60,7 +60,7 @@ authRoutes.post('/login', async (c) => {
 
   await startSession(c, row.id)
 
-  const permissions = row.role_id ? await getPermissionsForRole(c.env.DB, row.role_id) : []
+  const permissions = await getPermissionsForUser(c.env.DB, row.id, row.role_id, row.role_key)
   const brands = await getBrandsForUser(c.env.DB, row.id)
   const departments = await getDepartmentsForUser(c.env.DB, row.id)
   return c.json({ success: true, user: toAuthUser(row, permissions, brands, departments) })

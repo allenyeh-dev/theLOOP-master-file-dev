@@ -51,7 +51,7 @@ export function SopApp({ query = '', onClearQuery }) {
   }, [tab, t])
   const loadPending = useCallback(() => {
     sopApi.list('pending').then((r) => { setIsApprover(true); setPendingCount(r.sops.length) }).catch(() => {})
-    if (hasPermission('sop.submit')) sopApi.list('mine').then((r) => setMineOpen(r.sops.filter(isOpenSubmission).length)).catch(() => {})
+    if (hasPermission('sop.manage')) sopApi.list('mine').then((r) => setMineOpen(r.sops.filter(isOpenSubmission).length)).catch(() => {})
   }, [hasPermission])
 
   useEffect(() => { loadList() }, [loadList])
@@ -84,7 +84,7 @@ export function SopApp({ query = '', onClearQuery }) {
   const tabs = [
     ['published', t('已發布')],
     // Extra tabs only for people with an approval duty, or who have a submission in progress.
-    ...(hasPermission('sop.submit') && (canApprove || mineOpen > 0) ? [['mine', `${t('我的送審')}${mineOpen ? ` (${mineOpen})` : ''}`]] : []),
+    ...(hasPermission('sop.manage') && (canApprove || mineOpen > 0) ? [['mine', `${t('我的送審')}${mineOpen ? ` (${mineOpen})` : ''}`]] : []),
     ...(canApprove ? [['pending', `${t('待我簽核')}${pendingCount ? ` (${pendingCount})` : ''}`]] : []),
     ...(isAdmin ? [['flags', t('被標記')]] : []),
   ]
@@ -103,7 +103,7 @@ export function SopApp({ query = '', onClearQuery }) {
 
   return (
     <div className="sop">
-      {hasPermission('sop.submit') && (
+      {hasPermission('sop.manage') && (
         <div className="sop-new">
           <button type="button" className="sop-btn sop-btn--primary sop-btn--sm" onClick={() => setView({ name: 'submit' })}>{t('＋ 新增 SOP')}</button>
         </div>

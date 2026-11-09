@@ -60,7 +60,7 @@ const CHECK_SCHEMA = {
   required: ['ok', 'issues'],
 }
 
-async function callTool(env: AiEnv, system: string, user: string, name: string, schema: object) {
+export async function callTool(env: AiEnv, system: string, user: string, name: string, schema: object) {
   if (!env.ANTHROPIC_API_KEY) throw new AiUnavailableError('AI 尚未設定（缺少 ANTHROPIC_API_KEY）', 'AI is not configured (missing ANTHROPIC_API_KEY)')
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',

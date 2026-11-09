@@ -31,7 +31,7 @@ const MAX_IMAGE_BYTES = 1_500_000
 const imageKey = (id: number) => `sop-images/${id}`
 
 // Bytes live in R2; sop_images keeps the id, type, size and uploader.
-sopRoutes.post('/images', requirePermission('sop.submit'), async (c) => {
+sopRoutes.post('/images', requirePermission('sop.manage'), async (c) => {
   const mime = (c.req.header('content-type') ?? '').split(';')[0].trim()
   if (!IMAGE_TYPES.includes(mime)) return fail(c, bi('只支援 JPG / PNG / WebP 圖片', 'Only JPG, PNG or WebP images are supported'))
   const buf = await c.req.arrayBuffer()
@@ -64,7 +64,7 @@ sopRoutes.get('/categories', async (c) => {
   return c.json({ success: true, categories: results })
 })
 
-sopRoutes.post('/categories', requirePermission('sop.submit'), async (c) => {
+sopRoutes.post('/categories', requirePermission('sop.manage'), async (c) => {
   const body = await c.req.json().catch(() => ({}))
   const label = typeof body.label === 'string' ? body.label.trim() : ''
   if (!label || label.length > 30) return fail(c, bi('類別名稱需為 1–30 字', 'Category name must be 1–30 characters'))
@@ -109,7 +109,7 @@ sopRoutes.post('/flags/:id/resolve', async (c) => {
 })
 
 // ---------- AI helpers (advisory only) ----------
-sopRoutes.post('/ai/structure', requirePermission('sop.submit'), async (c) => {
+sopRoutes.post('/ai/structure', requirePermission('sop.manage'), async (c) => {
   const body = await c.req.json().catch(() => ({}))
   const text = typeof body.text === 'string' ? body.text.trim() : ''
   if (text.length < 10) return fail(c, bi('請貼上多一點內容', 'Please paste more content'))
@@ -121,7 +121,7 @@ sopRoutes.post('/ai/structure', requirePermission('sop.submit'), async (c) => {
   }
 })
 
-sopRoutes.post('/ai/check', requirePermission('sop.submit'), async (c) => {
+sopRoutes.post('/ai/check', requirePermission('sop.manage'), async (c) => {
   const body = await c.req.json().catch(() => ({}))
   try {
     return c.json({ success: true, review: await checkContent(c.env, normalizeContent(body.content), reqLang(c)) })
@@ -131,7 +131,7 @@ sopRoutes.post('/ai/check', requirePermission('sop.submit'), async (c) => {
   }
 })
 
-sopRoutes.post('/ai/translate', requirePermission('sop.submit'), async (c) => {
+sopRoutes.post('/ai/translate', requirePermission('sop.manage'), async (c) => {
   const body = await c.req.json().catch(() => ({}))
   const target = asLang(body.target)
   try {
@@ -412,7 +412,7 @@ async function loadSop(c: any, sopId: number) {
   // A SOP that was never published is still a private draft: only its author/editor (or an admin) may touch it.
   const everPublished = row.published_version_id != null
   const canEdit =
-    user.permissions.includes('sop.submit') &&
+    user.permissions.includes('sop.manage') &&
     row.status !== 'in_review' &&
     (everPublished ? (inBrand || isAdmin(user)) && deptOk : isOwner || isEditor || isAdmin(user))
   return { row, brands, approvals, inBrand, isOwner, isEditor, canSeeLatest, canEdit, deptOk }
@@ -464,7 +464,7 @@ sopRoutes.get('/:id', async (c) => {
 // What the edit page loads: the latest draft/rejected version, or (for a published SOP) the published
 // version as the starting point of a new one. Sop-level fields are locked once a SOP has been published,
 // so an unapproved edit can never change who sees the live version.
-sopRoutes.get('/:id/edit', requirePermission('sop.submit'), async (c) => {
+sopRoutes.get('/:id/edit', requirePermission('sop.manage'), async (c) => {
   const id = parseId(c.req.param('id') ?? '')
   if (!id) return fail(c, 'Invalid id')
   const found = await loadSop(c, id)
@@ -515,7 +515,7 @@ async function parseSopBody(c: any) {
   return { content, lang, alt, brandIds, categoryId, departmentId, ownerRoleId }
 }
 
-sopRoutes.post('/', requirePermission('sop.submit'), async (c) => {
+sopRoutes.post('/', requirePermission('sop.manage'), async (c) => {
   const user = c.get('user')
   const p = await parseSopBody(c)
   if ('error' in p) return fail(c, p.error as [string, string])
@@ -531,7 +531,7 @@ sopRoutes.post('/', requirePermission('sop.submit'), async (c) => {
   return c.json({ success: true, id: sop!.id })
 })
 
-sopRoutes.put('/:id', requirePermission('sop.submit'), async (c) => {
+sopRoutes.put('/:id', requirePermission('sop.manage'), async (c) => {
   const id = parseId(c.req.param('id') ?? '')
   if (!id) return fail(c, 'Invalid id')
   const user = c.get('user')
@@ -597,7 +597,7 @@ sopRoutes.get('/:id/versions', async (c) => {
 
 // Restore an old version: its content (and translation) becomes the newest version. History is never rewritten:
 // on a published SOP this adds version n+1 as a draft; an unpublished draft is replaced in place, like any draft edit.
-sopRoutes.post('/:id/versions/:versionId/restore', requirePermission('sop.submit'), async (c) => {
+sopRoutes.post('/:id/versions/:versionId/restore', requirePermission('sop.manage'), async (c) => {
   const id = parseId(c.req.param('id') ?? '')
   const versionId = parseId(c.req.param('versionId') ?? '')
   if (!id || !versionId) return fail(c, 'Invalid id')
@@ -668,7 +668,7 @@ async function approverEmails(db: D1Database, roleId: number, brandIds: number[]
   return results.map((r) => r.email)
 }
 
-sopRoutes.post('/:id/submit', requirePermission('sop.submit'), async (c) => {
+sopRoutes.post('/:id/submit', requirePermission('sop.manage'), async (c) => {
   const id = parseId(c.req.param('id') ?? '')
   if (!id) return fail(c, 'Invalid id')
   const user = c.get('user')
@@ -803,7 +803,7 @@ sopRoutes.post('/:id/publish', async (c) => {
   const id = parseId(c.req.param('id') ?? '')
   if (!id) return fail(c, 'Invalid id')
   const user = c.get('user')
-  if (!isAdmin(user) || !user.permissions.includes('sop.submit')) return fail(c, 'Forbidden', 403)
+  if (!isAdmin(user) || !user.permissions.includes('sop.manage')) return fail(c, 'Forbidden', 403)
   const found = await loadSop(c, id)
   if (!found || !found.canEdit) return fail(c, 'Not found', 404)
   const { row, brands } = found

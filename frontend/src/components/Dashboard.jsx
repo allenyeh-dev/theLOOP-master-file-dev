@@ -16,6 +16,7 @@ import { OverviewFooter } from './OverviewFooter'
 import { SopShortcut } from './SopShortcut'
 import { PlaybookCard } from './PlaybookCard'
 import { PlaybookPage } from './PlaybookPage'
+import { RecipeApp } from '../sop/RecipeApp'
 import './Dashboard.css'
 
 const PERMISSION_LABELS = {
@@ -112,6 +113,9 @@ export function Dashboard() {
   const effectivePermissions = previewedRole ? previewedRole.permissions : user.permissions
   const badgeSource = previewedRole ? previewedRole.label : user.role.label
   const effectiveRoleKey = previewedRole ? previewedRole.key : user.role.key
+  // FOH never uses recipes: the tab stays hidden for them whatever permissions they hold.
+  const recipesHidden = effectiveRoleKey === 'foh'
+  const canManageRecipes = !recipesHidden && effectivePermissions.includes('recipe.manage')
 
   return (
     <div className="dashboard">
@@ -126,8 +130,8 @@ export function Dashboard() {
         view={view}
         brandName={inBrand && brand ? [brand.label, brand.sub_label].filter(Boolean).join(' ') : null}
         brandLogo={inBrand && brand ? brand.logo_url : null}
-        showSop={hasPermission('sop.submit') || hasPermission('sop.approve')}
-        showRecipes={['chef', 'boh'].includes(effectiveRoleKey)}
+        showSop
+        showRecipes={!recipesHidden}
         onNavigate={navigate}
       />
 
@@ -149,6 +153,8 @@ export function Dashboard() {
             query={sopQuery}
             onClearQuery={() => setSopQuery('')}
           />
+        ) : view === 'recipes' && !recipesHidden ? (
+          <RecipeApp canManage={canManageRecipes} />
         ) : BRAND_TABS[view] ? (
           <p className="muted brand-tab-empty">{t(BRAND_TABS[view])} — {t('Coming soon')}</p>
         ) : view === 'playbook' ? (
@@ -193,7 +199,7 @@ export function Dashboard() {
 
             <Announcements />
 
-            {(hasPermission('sop.submit') || hasPermission('sop.approve')) && <SopShortcut user={user} onOpen={() => navigate('sop')} />}
+            <SopShortcut user={user} onOpen={() => navigate('sop')} />
 
             <WhatsHappening />
 
