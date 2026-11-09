@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { fetchOpsBoard, saveOpsBoard } from '../api/data'
 import { useLang } from '../i18n/LanguageContext'
 import { DateStepper } from './DateStepper'
@@ -29,6 +29,11 @@ function labelForOffset(offset, lang) {
 }
 
 const STATUS_LABEL = { out: 'OUT', limited: 'LIMITED' }
+const pillLabel = (r) => (r.status === 'limited' && Number.isInteger(r.left) ? `${r.left} LEFT` : STATUS_LABEL[r.status])
+
+function EditPencil({ onClick, label }) {
+  return <button type="button" className="ob-pencil" onClick={onClick} aria-label={label}>✎</button>
+}
 
 function Section({ title, count, children }) {
   const [open, setOpen] = useState(true)
@@ -50,7 +55,7 @@ function Reservations({ items }) {
   const shown = items.filter((r) => !active.kinds || r.tags.some((tag) => active.kinds.includes(tag.kind)))
 
   return (
-    <Section title={t('RESERVATIONS')}>
+    <Section title={t('TABLE BOOKINGS')}>
       <div className="ob-chips">
         {FILTERS.map((f) => {
           const n = f.kinds ? items.filter((r) => r.tags.some((tag) => f.kinds.includes(tag.kind))).length : items.length
@@ -88,6 +93,18 @@ function Reservations({ items }) {
   )
 }
 
+// Textarea that grows to show all of its content, so nothing needs scrolling inside the box.
+function AutoTextarea({ value, ...props }) {
+  const ref = useRef(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [value])
+  return <textarea ref={ref} value={value} {...props} />
+}
+
 function EditModal({ board, onClose, onSave }) {
   const { t } = useLang()
   const [form, setForm] = useState(board)
@@ -109,7 +126,7 @@ function EditModal({ board, onClose, onSave }) {
     setBusy(true)
     setError(null)
     try {
-      await onSave({ ...form, reservations: form.reservations.map((r) => ({ ...r, pax: Number(r.pax) || 0 })) })
+      await onSave({ ...form, eighty_six: form.eighty_six.map(({ left, ...r }) => (r.status === 'limited' && Number.isInteger(left) ? { ...r, left } : r)), reservations: form.reservations.map((r) => ({ ...r, pax: Number(r.pax) || 0 })) })
     } catch (err) {
       setError(err.message)
       setBusy(false)
@@ -126,19 +143,23 @@ function EditModal({ board, onClose, onSave }) {
       <form className="ob-modal" onMouseDown={(e) => e.stopPropagation()} onSubmit={submit}>
         <header><h2>{t('Edit Ops Board')}</h2><button type="button" onClick={onClose} aria-label={t('Close')}>×</button></header>
         <div className="ob-modal-body">
-          <p className="section-label">{t('Sold Out LIST')}</p>
+          <p className="section-label">{t('86 LIST')}</p>
           {form.eighty_six.map((r, i) => (
             <div className="ob-row" key={i}>
               <input value={r.name} onChange={(e) => patchList('eighty_six', i, { name: e.target.value })} placeholder={t('Item')} maxLength={80} />
               <select value={r.status} onChange={(e) => patchList('eighty_six', i, { status: e.target.value })}>
                 <option value="out">OUT</option><option value="limited">LIMITED</option>
               </select>
+              {r.status === 'limited' && (
+                <input type="number" min="0" max="999" className="ob-left" value={r.left ?? ''} placeholder={t('Left')}
+                  onChange={(e) => patchList('eighty_six', i, { left: e.target.value === '' ? undefined : Number(e.target.value) })} />
+              )}
               <button type="button" onClick={() => removeFrom('eighty_six', i)} aria-label={t('Remove')}>×</button>
             </div>
           ))}
           <button type="button" className="ob-add" onClick={() => addTo('eighty_six', { name: '', status: 'out' })}>+ {t('Add item')}</button>
 
-          <p className="section-label">{t('DAILY SPECIALS')}</p>
+          <p className="section-label">{t("TONIGHT'S PACKAGES")}</p>
           {form.specials.map((r, i) => (
             <div className="ob-row" key={i}>
               <input value={r.name} onChange={(e) => patchList('specials', i, { name: e.target.value })} placeholder={t('Item')} maxLength={80} />
@@ -149,9 +170,9 @@ function EditModal({ board, onClose, onSave }) {
           <button type="button" className="ob-add" onClick={() => addTo('specials', { name: '', price: '' })}>+ {t('Add item')}</button>
 
           <p className="section-label">{t('SHIFT NOTES')}</p>
-          <textarea rows={4} value={form.shift_notes} onChange={(e) => setForm({ ...form, shift_notes: e.target.value })} maxLength={1000} />
+          <AutoTextarea rows={4} value={form.shift_notes} onChange={(e) => setForm({ ...form, shift_notes: e.target.value })} maxLength={1000} />
 
-          <p className="section-label">{t('RESERVATIONS')}</p>
+          <p className="section-label">{t('TABLE BOOKINGS')}</p>
           {form.reservations.map((r, i) => (
             <div className="ob-res-edit" key={i}>
               <div className="ob-row">
@@ -209,6 +230,7 @@ export function OpsBoard({ brand }) {
   }
 
   const board = state.data?.board
+  const canEdit = !!state.data?.can_edit
   return (
     <div className="ops-board">
       <DateStepper label={labelForOffset(offset, lang)} isToday={offset === 0} canNext onPrev={() => setOffset((o) => o - 1)} onNext={() => setOffset((o) => o + 1)} />
@@ -218,7 +240,7 @@ export function OpsBoard({ brand }) {
           <h2>{brand.label}{brand.sub_label ? ` ${brand.sub_label}` : ''} · {t('Ops Board')}</h2>
           {state.data?.updated_at && <p className="muted">{t('Updated by {name}', { name: state.data.updated_by ?? '—' })}</p>}
         </div>
-        {state.data?.can_edit && <button type="button" className="ob-btn ob-btn--primary" onClick={() => setEditing(true)}>+ {t('Edit')}</button>}
+        {canEdit && <button type="button" className="ob-btn ob-btn--primary" onClick={() => setEditing(true)}>+ {t('Edit')}</button>}
       </div>
 
       {state.loading && !board && <p className="muted">{t('Loading…')}</p>}
@@ -226,27 +248,29 @@ export function OpsBoard({ brand }) {
 
       {board && (
         <>
-          <Section title={t('Sold Out LIST')}>
+          <Section title={t('86 LIST')}>
             {board.eighty_six.length === 0 ? <p className="muted">{t('Nothing 86’d.')}</p> : (
               <div className="ob-card">
                 {board.eighty_six.map((r, i) => (
                   <div className="ob-line" key={i}>
                     <span className={`ob-dot ob-dot--${r.status}`} />
                     <span className="ob-line-name">{r.name}</span>
-                    <span className={`ob-pill ob-pill--${r.status}`}>{STATUS_LABEL[r.status]}</span>
+                    <span className={`ob-pill ob-pill--${r.status}`}>{pillLabel(r)}</span>
+                    {canEdit && <EditPencil onClick={() => setEditing(true)} label={t('Edit')} />}
                   </div>
                 ))}
               </div>
             )}
           </Section>
 
-          <Section title={t('DAILY SPECIALS')}>
+          <Section title={t("TONIGHT'S PACKAGES")}>
             {board.specials.length === 0 ? <p className="muted">{t('No specials today.')}</p> : (
               <div className="ob-card">
                 {board.specials.map((r, i) => (
                   <div className="ob-line" key={i}>
                     <span className="ob-dot ob-dot--confirmed" />
                     <span className="ob-line-name">{r.name}{r.price ? ` · ${r.price}` : ''}</span>
+                    {canEdit && <EditPencil onClick={() => setEditing(true)} label={t('Edit')} />}
                   </div>
                 ))}
               </div>

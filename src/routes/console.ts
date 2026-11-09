@@ -27,6 +27,7 @@ const SYSTEM_PERMISSION_KEYS = [
   'sop.manage',
   'sop.view_all',
   'recipe.manage',
+  'ops.manage',
 ]
 const ROLE_KEY_RE = /^[a-z][a-z0-9_]{1,31}$/
 const BRAND_KEY_RE = /^[a-z][a-z0-9_]{1,31}$/
@@ -61,7 +62,7 @@ async function withDepartments<T extends { id: number }>(db: D1Database, users: 
   return users.map((u) => ({ ...u, departments: byUser.get(u.id) ?? [] }))
 }
 
-// Personal permissions (sop.manage, recipe.manage, schedule.manage) are granted per person, never per role.
+// Personal permissions (sop.manage, recipe.manage, schedule.manage, ops.manage) are granted per person, never per role.
 function validPersonalKeys(v: unknown): string[] | null {
   if (v === undefined || v === null) return []
   if (!Array.isArray(v) || !v.every((k) => PERSONAL_PERMISSIONS.includes(k))) return null

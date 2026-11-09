@@ -61,7 +61,6 @@ brandRoutes.get('/:id/popups', requireAuth, async (c) => {
 
 /* ------------------------------ Ops Board ------------------------------ */
 
-const EDIT_ROLES = ['admin', 'ownership', 'gm', 'manager']
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 const STATUS_86 = ['out', 'limited']
@@ -69,7 +68,7 @@ const RES_STATUS = ['confirmed', 'pending']
 const TAG_KINDS = ['event', 'birthday', 'vip', 'allergy', 'new_guest', 'other']
 
 type Board = {
-  eighty_six: { name: string; status: string }[]
+  eighty_six: { name: string; status: string; left?: number }[]
   specials: { name: string; price: string }[]
   shift_notes: string
   reservations: { time: string; pax: number; table: string; title: string; notes: string; tags: { kind: string; label: string }[]; status: string }[]
@@ -85,7 +84,11 @@ function parseBoard(b: any): Board | string {
   const eighty_six: Board['eighty_six'] = []
   for (const r of list(b.eighty_six, 50)) {
     const name = s(r?.name, 80)
-    if (name) eighty_six.push({ name, status: STATUS_86.includes(r.status) ? r.status : 'out' })
+    if (!name) continue
+    const status = STATUS_86.includes(r.status) ? r.status : 'out'
+    // Optional "N left" count, only meaningful while the item is limited.
+    const left = status === 'limited' && Number.isInteger(r.left) && r.left >= 0 && r.left <= 999 ? r.left : undefined
+    eighty_six.push(left === undefined ? { name, status } : { name, status, left })
   }
   const specials: Board['specials'] = []
   for (const r of list(b.specials, 50)) {
@@ -121,7 +124,7 @@ async function opsContext(c: any) {
     `SELECT b.id, b.label FROM brands b JOIN user_brands ub ON ub.brand_id = b.id AND ub.user_id = ? WHERE b.id = ?`
   ).bind(user.id, id).first()
   if (!brand) return { error: c.json({ success: false, error: 'You do not have access to this brand' }, 403) }
-  return { id, date: date as string, user, brand, canEdit: EDIT_ROLES.includes(user.role.key) }
+  return { id, date: date as string, user, brand, canEdit: user.permissions.includes('ops.manage') || user.role.key === 'admin' }
 }
 
 brandRoutes.get('/:id/ops', requireAuth, async (c) => {
@@ -144,7 +147,7 @@ brandRoutes.get('/:id/ops', requireAuth, async (c) => {
 brandRoutes.put('/:id/ops', requireAuth, async (c) => {
   const ctx = await opsContext(c)
   if (ctx.error) return ctx.error
-  if (!ctx.canEdit) return c.json({ success: false, error: 'Only GM, Manager, Admin or Ownership can edit the Ops Board' }, 403)
+  if (!ctx.canEdit) return c.json({ success: false, error: 'You do not have permission to edit the Ops Board' }, 403)
   const board = parseBoard(await c.req.json().catch(() => null))
   if (typeof board === 'string') return c.json({ success: false, error: board }, 400)
 

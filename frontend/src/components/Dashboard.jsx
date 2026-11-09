@@ -71,6 +71,10 @@ export function Dashboard() {
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
+  // Entering the OPS page (brand view) always starts at the top, not where the previous tab was scrolled to.
+  useEffect(() => {
+    if (view === 'brand') window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [view])
   // The OPS / S.O.P. tabs belong to a brand: shown on its page and on SOP screens reached from it, never on home.
   const inBrand = (() => {
     for (let i = nav.pos; i >= 0; i--) {

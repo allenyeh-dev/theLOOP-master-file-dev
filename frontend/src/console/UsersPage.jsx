@@ -8,6 +8,7 @@ const PERSONAL = [
   { key: 'sop.manage', label: 'SOP', hint: 'Create, edit and submit SOPs. Everyone else can only read the SOPs of their own brands and departments.' },
   { key: 'recipe.manage', label: 'Recipes', hint: 'Create, edit and publish recipes of their own brands. Everyone else can only read them.' },
   { key: 'schedule.manage', label: 'Schedule', hint: 'Build, publish and edit the staff schedule of their own brands. Everyone else only sees published days.' },
+  { key: 'ops.manage', label: 'Ops Board', hint: 'Edit the daily Ops Board (86 list, packages, shift notes, table bookings) of their own brands. Everyone else can only view it.' },
 ]
 
 function UserModal({ user, roles, brands, departments, onClose, onSaved }) {
