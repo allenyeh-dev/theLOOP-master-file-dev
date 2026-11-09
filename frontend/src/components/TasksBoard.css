@@ -1,0 +1,27 @@
+.tasks-board { padding-bottom: 5rem; }
+.tk-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 0.9rem; }
+.tk-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); }
+.tk-row:last-child { border-bottom: 0; }
+.tk-check { width: 1.15rem; height: 1.15rem; flex: none; accent-color: #4caf6a; cursor: pointer; }
+.tk-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.tk-main strong { font-size: 0.92rem; font-weight: 600; overflow-wrap: anywhere; }
+.tk-main small { font-size: 0.75rem; color: var(--text-muted); }
+.tk-row.is-done .tk-main strong { text-decoration: line-through; color: var(--text-muted); }
+.tk-badge { flex: none; font-size: 0.65rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 6px; background: rgba(120, 130, 150, 0.2); color: #aab; }
+.tk-badge--high { background: rgba(212, 72, 59, 0.2); color: #e5674f; }
+.tk-badge--med { background: rgba(227, 168, 63, 0.2); color: #e3a83f; }
+.tk-badge--done { background: rgba(120, 130, 150, 0.15); color: var(--text-muted); }
+.tk-delete { flex: none; background: none; border: 0; color: #e5674f; font-size: 1.3rem; line-height: 1; cursor: pointer; padding: 0 0.2rem; }
+.tk-add { background: none; border: 0; color: var(--accent); font-size: 0.85rem; font-weight: 700; cursor: pointer; padding: 0.4rem 0; margin-bottom: 0.9rem; }
+.tk-done-head { display: flex; justify-content: space-between; align-items: center; margin-top: 0.4rem; }
+.tk-done-head .section-label { margin: 0; }
+.tk-clear { background: none; border: 1px solid var(--border); color: #e5674f; border-radius: 8px; padding: 0.3rem 0.7rem; font-size: 0.75rem; font-weight: 600; cursor: pointer; }
+.tk-done-head + .tk-card { margin-top: 0.6rem; }
+.tk-form { display: flex; flex-direction: column; gap: 0.5rem; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 0.9rem; margin-bottom: 0.9rem; }
+.tk-form input, .tk-form select { background: var(--panel-alt); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.6rem; font: inherit; font-size: 0.85rem; min-width: 0; }
+.tk-form-row { display: flex; gap: 0.4rem; }
+.tk-form-row > * { flex: 1; }
+.tk-form-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+.tk-btn { background: var(--panel-alt); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 0.45rem 0.9rem; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+.tk-btn--primary { border-color: var(--accent); color: var(--accent); }
+.tk-btn:disabled { opacity: 0.5; }
