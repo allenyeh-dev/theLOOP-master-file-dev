@@ -59,7 +59,7 @@ export function ExecutiveOverview({ user, onOpenPlaybook }) {
         </span>
         <div className="playbook-cta-eyebrow">{t('All Brands')}</div>
         <div className="playbook-cta-title">{t('OPS BOARD')}</div>
-        <div className="playbook-cta-sub">{t('Live 86 list, specials, shift notes, and reservations across every outlet.')}</div>
+        <div className="playbook-cta-sub">{t('Live Sold Out list, specials, shift notes, and reservations across every outlet.')}</div>
         <div className="playbook-cta-btn">{t('Open Ops Board →')}</div>
       </button>
 

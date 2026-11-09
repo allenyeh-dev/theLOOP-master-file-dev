@@ -126,7 +126,7 @@ function EditModal({ board, onClose, onSave }) {
       <form className="ob-modal" onMouseDown={(e) => e.stopPropagation()} onSubmit={submit}>
         <header><h2>{t('Edit Ops Board')}</h2><button type="button" onClick={onClose} aria-label={t('Close')}>×</button></header>
         <div className="ob-modal-body">
-          <p className="section-label">{t('86 LIST')}</p>
+          <p className="section-label">{t('Sold Out LIST')}</p>
           {form.eighty_six.map((r, i) => (
             <div className="ob-row" key={i}>
               <input value={r.name} onChange={(e) => patchList('eighty_six', i, { name: e.target.value })} placeholder={t('Item')} maxLength={80} />
@@ -226,7 +226,7 @@ export function OpsBoard({ brand }) {
 
       {board && (
         <>
-          <Section title={t('86 LIST')}>
+          <Section title={t('Sold Out LIST')}>
             {board.eighty_six.length === 0 ? <p className="muted">{t('Nothing 86’d.')}</p> : (
               <div className="ob-card">
                 {board.eighty_six.map((r, i) => (
