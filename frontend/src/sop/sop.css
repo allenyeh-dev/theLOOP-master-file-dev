@@ -104,8 +104,7 @@ select.sop-input { appearance: auto; }
 .sop-ai-box { background: var(--panel); border: 1px dashed var(--border); border-radius: 12px; padding: 0.6rem 1rem; margin-bottom: 1rem; }
 .sop-ai-box summary { cursor: pointer; font-size: 0.95rem; }
 .sop-file { display: inline-flex; align-items: center; cursor: pointer; }
-.sop-template { display: grid; gap: 0.4rem; }
-.sop-template ul { margin: 0 0 0 1.1rem; padding: 0; font-size: 0.85rem; }
+.sop-ai-box + div ul, .sop-ai-box ~ div ul { margin: 0 0 0 1.1rem; padding: 0; font-size: 0.85rem; }
 
 /* ---- recipe list (used in the main app, where the console's input styles do not apply) ---- */
 .recipe-list .cs-toolbar { margin-bottom: 1rem; }

@@ -13,7 +13,7 @@ export function TemplateUpload({ kind, variant = 'sop', multiple = true, onParse
   const links = templateLinks[kind]
   const cls = variant === 'cs'
     ? { box: 'cs-form', btn: 'cs-btn', link: 'cs-link', note: 'cs-muted', err: 'cs-error' }
-    : { box: 'sop-ai-box sop-template', btn: 'sop-btn sop-btn--sm', link: 'sop-link', note: 'sop-sub', err: 'sop-error' }
+    : { box: 'sop-ai-box', btn: 'sop-btn sop-btn--sm', link: 'sop-link', note: 'sop-sub', err: 'sop-error' }
 
   async function pick(e) {
     const files = [...(e.target.files ?? [])]
@@ -45,23 +45,25 @@ export function TemplateUpload({ kind, variant = 'sop', multiple = true, onParse
   }
 
   return (
-    <div className={cls.box}>
-      <strong>{t('Template · Upload')}</strong>
-      <p className={cls.note}>{t('Download the template, fill it in, then upload it here. The form is filled in for you; no AI needed.')}</p>
-      <div className={variant === 'cs' ? 'cs-toolbar' : 'sop-nav'}>
-        <a className={cls.link} href={links.zh} download>{t('Download template')} (繁中)</a>
-        <a className={cls.link} href={links.en} download>{t('Download template')} (EN)</a>
-        <label className={`${cls.btn} ${variant === 'cs' ? '' : 'sop-file'}`}>
-          {busy ? t('Reading…') : multiple ? t('Upload filled template(s)') : t('Upload filled template')}
-          <input type="file" hidden multiple={multiple} disabled={busy} accept=".md,.markdown,.txt,text/plain,text/markdown" onChange={pick} />
-        </label>
-      </div>
+    <>
+      <details className={cls.box}>
+        <summary style={{ cursor: 'pointer' }}>{t('Template · Upload')}</summary>
+        <div className={variant === 'cs' ? 'cs-toolbar' : 'sop-nav'}>
+          <a className={cls.link} href={links.zh} download>{t('Download template')} (繁中)</a>
+          <a className={cls.link} href={links.en} download>{t('Download template')} (EN)</a>
+          <label className={`${cls.btn} ${variant === 'cs' ? '' : 'sop-file'}`}>
+            {busy ? t('Reading…') : multiple ? t('Upload filled template(s)') : t('Upload filled template')}
+            <input type="file" hidden multiple={multiple} disabled={busy} accept=".md,.markdown,.txt,text/plain,text/markdown" onChange={pick} />
+          </label>
+        </div>
+      </details>
+      {/* Results stay outside the collapsed box so they are visible after an upload. */}
       {msgs.map((m, i) => (
         <div key={i}>
           <p className={m.ok ? cls.note : cls.err}>{m.text}</p>
           {m.notes?.length > 0 && <ul className={cls.note}>{m.notes.map((n, j) => <li key={j}>{n}</li>)}</ul>}
         </div>
       ))}
-    </div>
+    </>
   )
 }

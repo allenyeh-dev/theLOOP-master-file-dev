@@ -543,7 +543,6 @@ export const zh = {
   'Sign out': '登出',
   // template upload
   'Template · Upload': '範本 · 上傳',
-  'Download the template, fill it in, then upload it here. The form is filled in for you; no AI needed.': '下載範本、填寫後在這裡上傳，表單會自動帶入，不需要 AI。',
   'Download template': '下載範本',
   'Upload filled template': '上傳填好的範本',
   'Upload filled template(s)': '上傳填好的範本（可多個）',
