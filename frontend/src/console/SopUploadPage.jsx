@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { consoleApi } from '../api/console'
 import { sopApi, sopImageUrl, uploadSopImage } from '../api/sops'
 import { Field, LangToggle, PageHead } from './ui'
+import { useAuth } from '../context/AuthContext'
 import { useLang } from '../i18n/LanguageContext'
 import { ManageOptionsModal } from './ManageOptionsModal'
 import { SopVersionHistory } from './SopVersionHistory'
@@ -25,6 +26,7 @@ const detectLang = (c) => (/[\u3400-\u9fff]/.test([c.title, c.purpose, ...c.stan
 // A SOP holds up to two language versions; the page language (EN / 中文 toggle) picks which one the form shows and edits.
 export function SopUploadPage({ editId = null, onBack = null }) {
   const { t, lang, setLang } = useLang()
+  const { user } = useAuth()
   const [refs, setRefs] = useState({ brands: [], categories: [], departments: [], roles: [] })
   const [source, setSource] = useState('')
   const [docs, setDocs] = useState({ zh: null, en: null })
@@ -174,7 +176,7 @@ export function SopUploadPage({ editId = null, onBack = null }) {
       )}
 
       <div className="cs-form" style={{ maxWidth: '52rem' }}>
-        {!editId && <TemplateUpload kind="sop" variant="cs" multiple={false} onParsed={applyTemplate} onText={(text) => { setSource(text); setAiOpen(true) }} />}
+        {!editId && <TemplateUpload kind="sop" variant="cs" multiple={false} brands={refs.brands} defaultBrand={(refs.brands.find((b) => b.id === user.brands?.[0]?.id) ?? refs.brands[0])?.label} departments={refs.departments} onParsed={applyTemplate} onText={(text) => { setSource(text); setAiOpen(true) }} />}
         {!docs[lang] && LANGS.some((l) => docs[l]) && <p className="cs-muted">{t('No version in this language yet — fill it in, or leave it empty to have it translated when you publish.')}</p>}
         <div className="cs-form-row">
           <Field label={t('Brand')} hint={t('Blank or All = company-wide.')}>

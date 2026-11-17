@@ -1,16 +1,18 @@
 import { useState } from 'react'
 import { useLang } from '../i18n/LanguageContext'
-import { parseTemplate, templateLinks, warningText } from './templateParser'
+import { downloadTemplate, readDocxText } from './templateDocx'
+import { parseTemplate, warningText } from './templateParser'
 
-// "Download the template, fill it in, upload it": the file goes straight into the form, no AI step.
+// "Download the Word template, fill it in, upload it": the file goes straight into the form, no AI step.
+// brands / departments: the options offered to this user (objects with a `label`); defaultBrand: the label pre-ticked in the template.
 // onParsed(result, fileName) fills the form and may return extra notes (strings) to show under the box.
-// onText(text, fileName) is optional: called for a file that is not the template (free text), e.g. to hand it to AI.
+// onText(text, fileName) is optional: called with the plain text of a Word file that is not the template, e.g. to hand it to AI.
 // variant: 'sop' (staff pages) or 'cs' (admin console) only changes the CSS classes.
-export function TemplateUpload({ kind, variant = 'sop', multiple = true, onParsed, onText }) {
+export function TemplateUpload({ kind, variant = 'sop', multiple = true, brands = [], defaultBrand, departments = [], onParsed, onText }) {
   const { t } = useLang()
   const [msgs, setMsgs] = useState([])
   const [busy, setBusy] = useState(false)
-  const links = templateLinks[kind]
+  const labels = { brands: brands.map((b) => b.label), departments: departments.map((d) => d.label) }
   const cls = variant === 'cs'
     ? { box: 'cs-form', btn: 'cs-btn', link: 'cs-link', note: 'cs-muted', err: 'cs-error' }
     : { box: 'sop-ai-box', btn: 'sop-btn sop-btn--sm', link: 'sop-link', note: 'sop-sub', err: 'sop-error' }
@@ -22,22 +24,21 @@ export function TemplateUpload({ kind, variant = 'sop', multiple = true, onParse
     setBusy(true)
     const out = []
     for (const f of files) {
-      let text = ''
+      let r = null
       try {
-        text = await f.text()
+        r = await parseTemplate(f, kind, labels)
       } catch {
-        out.push({ ok: false, text: `${f.name}: ${t('Could not read this file')}` })
+        out.push({ ok: false, text: `${f.name}: ${t('Please upload the Word template (.docx).')}` })
         continue
       }
-      const r = await parseTemplate(text, kind).catch(() => null)
       if (r) {
         const extra = (await onParsed(r, f.name)) ?? []
         out.push({ ok: true, text: `${f.name}: ${t('Filled into the form — please check it before sending.')}`, notes: [...r.warnings.map((w) => warningText(w, t)), ...extra] })
       } else if (onText) {
-        onText(text, f.name)
-        out.push({ ok: false, text: `${f.name}: ${t('This is not the template, so its text was put in the AI box instead.')}` })
+        onText(readDocxText(await f.arrayBuffer()), f.name)
+        out.push({ ok: false, text: `${f.name}: ${t('The template was not filled in, so the document text was put in the AI box instead.')}` })
       } else {
-        out.push({ ok: false, text: `${f.name}: ${t('This file does not look like the template. Download the template, fill it in and upload it again.')}` })
+        out.push({ ok: false, text: `${f.name}: ${t('Nothing to import — the template was not filled in. Replace the grey example text and upload it again.')}` })
       }
     }
     setMsgs(out)
@@ -49,11 +50,10 @@ export function TemplateUpload({ kind, variant = 'sop', multiple = true, onParse
       <details className={cls.box}>
         <summary style={{ cursor: 'pointer' }}>{t('Template · Upload')}</summary>
         <div className={variant === 'cs' ? 'cs-toolbar' : 'sop-nav'}>
-          <a className={cls.link} href={links.zh} download>{t('Download template')} (繁中)</a>
-          <a className={cls.link} href={links.en} download>{t('Download template')} (EN)</a>
+          <button type="button" className={cls.link} onClick={() => downloadTemplate(kind, { brands: labels.brands, defaultBrand, departments: labels.departments })}>{t('Download template (Word)')}</button>
           <label className={`${cls.btn} ${variant === 'cs' ? '' : 'sop-file'}`}>
             {busy ? t('Reading…') : multiple ? t('Upload filled template(s)') : t('Upload filled template')}
-            <input type="file" hidden multiple={multiple} disabled={busy} accept=".md,.markdown,.txt,text/plain,text/markdown" onChange={pick} />
+            <input type="file" hidden multiple={multiple} disabled={busy} accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={pick} />
           </label>
         </div>
       </details>

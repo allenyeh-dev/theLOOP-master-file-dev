@@ -1,22 +1,14 @@
-// Reads a filled-in SOP / recipe template (the .md files in /public/sop-templates and /recipe-templates)
-// straight into the form shape, with no AI. Returns null when the text does not look like the template,
-// so callers can fall back to the AI "structure" step for free text.
+import { readDocxRows, TEMPLATE_ROWS } from './templateDocx'
 
-const TEMPLATE_URLS = {
-  sop: ['/sop-templates/sop-template-en.md', '/sop-templates/sop-template-zh.md'],
-  recipe: ['/recipe-templates/recipe-template-en.md', '/recipe-templates/recipe-template-zh.md'],
-}
+// Reads an uploaded, filled-in Word template (see templateDocx.js) into the form shape, with no AI.
+// Returns null when the file has no recognisable template table, so callers can fall back to AI for free text.
+// Throws Error('not-docx') when the file is not a .docx at all.
 
-export const templateLinks = {
-  sop: { zh: TEMPLATE_URLS.sop[1], en: TEMPLATE_URLS.sop[0] },
-  recipe: { zh: TEMPLATE_URLS.recipe[1], en: TEMPLATE_URLS.recipe[0] },
-}
-
-// First-column label -> field. Order matters: the first match wins.
+// First-column label (English + 中文 lines joined) -> field. The first match wins.
 const FIELD_RULES = [
   ['code', /sop number|recipe number|^(sop|食譜)\s*編號/i],
-  ['brand', /venue|brand|據點|品牌/i],
-  ['department', /department|部門/i],
+  ['brand', /^brand|品牌/i],
+  ['department', /^department|部門/i],
   ['menu_category', /menu category|菜單分類/i],
   ['audience', /audience|適用對象/i],
   ['name', /item name|品項名稱/i],
@@ -31,93 +23,63 @@ const FIELD_RULES = [
 ]
 const fieldOf = (label) => FIELD_RULES.find(([, re]) => re.test(label))?.[0] ?? null
 
-const HEADING_STOP = /^#{1,6}\s*(example|範例|why this matters|為何這很重要)/i
-const HEADING_NOTES = /^#{1,6}\s*\d*\.?\s*(submission notes|提交備註)/i
-const BOILERPLATE = /^(anything unclear|任何不明確之處)/i
+const MARK = /[☒☑✔✓✅]/
+const BOX = /[☐☒☑✔✓✅]/g
 
-// A table row -> cells. "\|" is a literal pipe (ingredient format), "|" separates cells.
-function cellsOf(line) {
-  const parts = line.replace(/\\\|/g, '\u0000').split('|').map((x) => x.replaceAll('\u0000', '|').trim())
-  if (parts[0] === '') parts.shift()
-  if (parts[parts.length - 1] === '') parts.pop()
-  return parts
-}
-
-// A cell -> its lines. <br> and newlines split; (parenthesised) lines are template instructions and dropped.
-const linesOf = (cell) =>
-  (cell ?? '')
-    .split(/<br\s*\/?>|\n/i)
-    .map((x) => x.trim())
-    .filter((x) => x && !/^[(（].*[)）]$/.test(x))
-
-// -> { rows: [{ field, en: string[], zh: string[] }], notes: string[] }. Stops before the worked example.
-function readTable(text) {
-  const rows = []
-  const notes = []
-  let inNotes = false
-  for (const raw of text.replace(/\r\n?/g, '\n').split('\n')) {
-    const line = raw.trim()
-    if (HEADING_STOP.test(line)) break
-    if (/^#{1,6}\s/.test(line)) { inNotes = HEADING_NOTES.test(line); continue }
-    if (inNotes) { if (line && !BOILERPLATE.test(line)) notes.push(line); continue }
-    if (!line.startsWith('|') || /^\|[\s:|-]+\|?$/.test(line)) continue
-    const cells = cellsOf(line)
-    if (cells.length < 3) continue
-    const field = fieldOf(cells[0])
-    if (field) rows.push({ field, en: linesOf(cells[1]), zh: linesOf(cells[2]) })
+// A choice cell: the ticked option; else the only option left; else (untouched option list) nothing;
+// else whatever text the user typed instead.
+function resolveChoice(lines, labels) {
+  if (!lines.length) return ''
+  const sorted = [...labels].sort((a, b) => b.length - a.length)
+  const has = (text, l) => text.toLowerCase().includes(l.toLowerCase())
+  for (const line of lines) {
+    if (!MARK.test(line)) continue
+    const hit = sorted.find((l) => has(line, l))
+    if (hit) return hit
   }
-  return { rows, notes }
-}
-
-// The cells of the blank template itself, per field+column: a cell left exactly as downloaded counts as empty.
-const untouched = new Map() // kind -> Set of "field|col|text"
-const loading = new Map()
-function loadUntouched(kind) {
-  if (!loading.has(kind)) {
-    loading.set(
-      kind,
-      Promise.all(
-        TEMPLATE_URLS[kind].map((u) =>
-          fetch(u).then((r) => (r.ok ? r.text() : '')).catch(() => '')
-        )
-      ).then((texts) => {
-        const set = new Set()
-        for (const txt of texts) for (const r of readTable(txt).rows) for (const col of ['en', 'zh']) set.add(`${r.field}|${col}|${r[col].join('\n')}`)
-        untouched.set(kind, set)
-      })
-    )
+  let rest = lines.join('\n').toLowerCase()
+  const present = []
+  for (const l of sorted) {
+    if (rest.includes(l.toLowerCase())) {
+      present.push(l)
+      rest = rest.replace(l.toLowerCase(), ' ')
+    }
   }
-  return loading.get(kind)
+  if (present.length === 1) return present[0]
+  if (present.length > 1) return ''
+  return lines.join(' ').replace(BOX, '').trim()
 }
 
 const stripStep = (x) => x.replace(/^\d+\s*[.)、]\s*/, '').trim()
 const stripBullet = (x) => x.replace(/^[•·\-*]\s*/, '').trim()
 
-function ingredientOf(line, warn) {
-  const parts = line.split('|').map((x) => x.trim())
-  if (parts.length === 3) return { qty: parts[0], unit: parts[1], name: parts[2] }
-  warn(line)
-  return { qty: '', unit: '', name: line }
-}
-
-// Parse a filled template. kind: 'sop' | 'recipe'.
-// -> { en, zh, meta, notes, warnings } where en / zh are SopContent / RecipeContent-shaped (or null if that
-//    column has no title), or null when the text is not the template.
-export async function parseTemplate(text, kind) {
-  await loadUntouched(kind)
-  const blank = untouched.get(kind) ?? new Set()
-  const { rows, notes } = readTable(text)
+// Parse a filled template. kind: 'sop' | 'recipe'. options = { brands: string[], departments: string[] } (the labels offered).
+// -> { en, zh, meta: { code, brand, department }, warnings } with en / zh SopContent / RecipeContent-shaped
+//    (null when that column has no title / name), or null when the file is not the template.
+export async function parseTemplate(file, kind, options = {}) {
+  const table = readDocxRows(await file.arrayBuffer())
+  const examples = new Map(TEMPLATE_ROWS[kind].map((r) => [r.field, r.ex]))
+  const rows = []
+  for (const cells of table) {
+    if (cells.length < 3) continue
+    const field = fieldOf(cells[0].join(' '))
+    if (field) rows.push({ field, en: cells[1], zh: cells[2] })
+  }
   if (!rows.some((r) => r.field === (kind === 'sop' ? 'title' : 'name'))) return null
 
   const warnings = []
-  const val = (field, col) => {
-    const lines = rows.filter((r) => r.field === field).flatMap((r) => (blank.has(`${field}|${col}|${r[col].join('\n')}`) ? [] : r[col]))
-    return lines
-  }
+  // A cell left exactly as the grey example counts as empty.
+  const val = (field, col) =>
+    rows.filter((r) => r.field === field).flatMap((r) => {
+      const ex = examples.get(field)?.[col === 'en' ? 0 : 1] ?? []
+      return r[col].join('\n') === ex.join('\n') ? [] : r[col]
+    })
+
+  const choice = (field, labels) => resolveChoice(val(field, 'en'), labels ?? []) || resolveChoice(val(field, 'zh'), labels ?? [])
   const meta = {
     code: val('code', 'en')[0] ?? val('code', 'zh')[0] ?? '',
-    brand: (val('brand', 'en')[0] ?? val('brand', 'zh')[0] ?? '').trim(),
-    department: (val('department', 'en')[0] ?? val('department', 'zh')[0] ?? '').trim(),
+    brand: choice('brand', options.brands),
+    department: choice('department', options.departments),
   }
 
   const side = (col) => {
@@ -129,14 +91,19 @@ export async function parseTemplate(text, kind) {
         title, purpose: val('purpose', col).join('\n'), audience: one('audience'), tools: '', mistakes: '', effective_date: '',
         standards: val('standards', col).map(stripBullet).filter(Boolean),
         steps: val('steps', col).map(stripStep).filter(Boolean).map((action) => ({ action, caution: '', images: [] })),
-        notes: '',
+        notes: val('notes', col).join('\n'),
       }
     }
     const name = one('name')
     if (!name) return null
     return {
       name, menu_category: one('menu_category'), audience: one('audience'),
-      ingredients: val('ingredients', col).map((l) => ingredientOf(l, (bad) => warnings.push({ code: 'ingredient_format', detail: bad }))).filter((i) => i.name),
+      ingredients: val('ingredients', col).map((line) => {
+        const p = line.split('|').map((x) => x.trim())
+        if (p.length === 3) return { qty: p[0], unit: p[1], name: p[2] }
+        warnings.push({ code: 'ingredient_format', detail: line })
+        return { qty: '', unit: '', name: line }
+      }).filter((i) => i.name),
       steps: val('steps', col).map(stripStep).filter(Boolean),
       garnish: one('garnish'), glassware: one('glassware'), notes: val('notes', col).join('\n'),
     }
@@ -145,21 +112,15 @@ export async function parseTemplate(text, kind) {
   const en = side('en')
   const zh = side('zh')
   if (!en && !zh) return null
-
   if (en && zh) {
     if (en.steps.length !== zh.steps.length) warnings.push({ code: 'steps_mismatch', detail: `${en.steps.length} / ${zh.steps.length}` })
     if (kind === 'sop' && en.standards.length !== zh.standards.length) warnings.push({ code: 'standards_mismatch', detail: `${en.standards.length} / ${zh.standards.length}` })
     if (kind === 'recipe' && en.ingredients.length !== zh.ingredients.length) warnings.push({ code: 'ingredients_mismatch', detail: `${en.ingredients.length} / ${zh.ingredients.length}` })
   }
-  // The submission note belongs to the submitter, not to a language: put it on both sides' notes.
-  const note = notes.join('\n').trim()
-  if (note) for (const s of [en, zh]) if (s) s.notes = [s.notes, note].filter(Boolean).join('\n')
-
   return { en, zh, meta, warnings }
 }
 
-// Match free text from the template ("SPC Kitchen", "Bar Operations") to the user's own options.
-// Returns the option or null. Matches by key/code/label either way round.
+// Match the chosen text ("SPC", "BOH") to the user's own options by key / code / label.
 export function matchOption(text, options) {
   const q = (text ?? '').trim().toLowerCase()
   if (!q) return null

@@ -224,7 +224,7 @@ export function SopSubmitPage({ onBack, editId = null }) {
         ))}
       </div>
       {noScope && <p className="sop-error">{t('你的帳號尚未設定品牌或部門，請聯絡管理員。')}</p>}
-      {!editId && <TemplateUpload kind="sop" onParsed={applyTemplate} />}
+      {!editId && <TemplateUpload kind="sop" brands={brands} defaultBrand={brands[0]?.label} departments={depts} onParsed={applyTemplate} />}
 
       {items.map((it, n) => {
         const done = it.status === 'done'

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { recipeApi } from '../api/recipes'
 import { sopApi } from '../api/sops'
+import { useAuth } from '../context/AuthContext'
 import { useLang } from '../i18n/LanguageContext'
 import { TemplateUpload } from './TemplateUpload'
 import { matchOption } from './templateParser'
@@ -45,6 +46,7 @@ const newItem = () => ({ key: nextKey++, brandSel: '', code: '', en: emptySide()
 
 export function RecipeFormPage({ onBack, editId = null }) {
   const { t } = useLang()
+  const { user } = useAuth()
   const [items, setItems] = useState(() => [newItem()])
   const [brands, setBrands] = useState([])
   const [canAll, setCanAll] = useState(false) // only admins may file a recipe under every brand
@@ -251,7 +253,7 @@ export function RecipeFormPage({ onBack, editId = null }) {
       </div>
       {noScope && <p className="sop-error">{t('Your account has no brand yet — please contact an admin.')}</p>}
 
-      {!editId && <TemplateUpload kind="recipe" onParsed={applyTemplate} onText={(text) => { setSource(text); setAiOpen(true) }} />}
+      {!editId && <TemplateUpload kind="recipe" brands={brands} defaultBrand={(brands.find((b) => b.id === user.brands?.[0]?.id) ?? brands[0])?.label} onParsed={applyTemplate} onText={(text) => { setSource(text); setAiOpen(true) }} />}
 
       {!editId && (
         <details className="sop-ai-box" open={aiOpen} onToggle={(e) => setAiOpen(e.currentTarget.open)}>
