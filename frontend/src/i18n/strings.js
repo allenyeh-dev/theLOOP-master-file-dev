@@ -541,6 +541,25 @@ export const zh = {
   'Permissions': '權限',
   '← Back to app': '← 返回 App',
   'Sign out': '登出',
+  // template upload
+  'Template · Upload': '範本 · 上傳',
+  'Download the template, fill it in, then upload it here. The form is filled in for you; no AI needed.': '下載範本、填寫後在這裡上傳，表單會自動帶入，不需要 AI。',
+  'Download template': '下載範本',
+  'Upload filled template': '上傳填好的範本',
+  'Upload filled template(s)': '上傳填好的範本（可多個）',
+  'Reading…': '讀取中…',
+  'Could not read this file': '無法讀取這個檔案',
+  'Filled into the form — please check it before sending.': '已帶入表單，送出前請先檢查。',
+  'This is not the template, so its text was put in the AI box instead.': '這不是範本格式，內容已放進下方的 AI 整理欄。',
+  'This file does not look like the template. Download the template, fill it in and upload it again.': '這個檔案看起來不是範本格式。請下載範本，填寫後再上傳。',
+  'Brand “{x}” was not found — please choose one.': '找不到品牌「{x}」，請自行選擇。',
+  'No brand in the file — please choose one.': '檔案中沒有填品牌，請自行選擇。',
+  'Department “{x}” was not found — please choose one.': '找不到部門「{x}」，請自行選擇。',
+  'No department in the file — please choose one.': '檔案中沒有填部門，請自行選擇。',
+  'English and 中文 have different numbers of steps ({n})': '英文與中文的步驟數不一致（{n}）',
+  'English and 中文 have different numbers of standards ({n})': '英文與中文的準則數不一致（{n}）',
+  'English and 中文 have different numbers of ingredients ({n})': '英文與中文的食材數不一致（{n}）',
+  'Ingredient not in “quantity | unit | name” format: {line}': '食材不是「數量 | 單位 | 名稱」格式：{line}',
 }
 
 export const en = {

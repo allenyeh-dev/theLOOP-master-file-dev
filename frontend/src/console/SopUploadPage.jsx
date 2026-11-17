@@ -5,6 +5,8 @@ import { Field, LangToggle, PageHead } from './ui'
 import { useLang } from '../i18n/LanguageContext'
 import { ManageOptionsModal } from './ManageOptionsModal'
 import { SopVersionHistory } from './SopVersionHistory'
+import { TemplateUpload } from '../sop/TemplateUpload'
+import { matchOption } from '../sop/templateParser'
 
 const MAX_STEP_IMAGES = 4
 const EMPTY = { title: '', purpose: '', audience: '', tools: '', standards: [''], steps: [{ action: '', caution: '', images: [] }], mistakes: '', notes: '', effective_date: '' }
@@ -38,6 +40,7 @@ export function SopUploadPage({ editId = null, onBack = null }) {
   const [done, setDone] = useState(null)
   const [locked, setLocked] = useState(false)
   const [manage, setManage] = useState(false)
+  const [aiOpen, setAiOpen] = useState(false)
   const [rev, setRev] = useState(0) // bumped after a restore to reload the form and the history
   const [keptBrands, setKeptBrands] = useState([]) // brands of an existing multi-brand SOP, which one dropdown cannot show
 
@@ -82,6 +85,22 @@ export function SopUploadPage({ editId = null, onBack = null }) {
     setSource(await file.text())
     if (!content.title) setC({ title: file.name.replace(/\.[^.]+$/, '') })
     e.target.value = ''
+  }
+
+  // A filled-in template fills the whole form (both languages). Brand / department are matched by name.
+  function applyTemplate(r) {
+    const next = { zh: r.zh ? norm(r.zh) : null, en: r.en ? norm(r.en) : null }
+    const primary = r.zh ? 'zh' : 'en'
+    setDocs(next)
+    setDirty({ zh: Boolean(next.zh), en: Boolean(next.en) })
+    setLang(primary)
+    const b = matchOption(r.meta.brand, refs.brands)
+    const d = matchOption(r.meta.department, refs.departments)
+    setMeta((m) => ({ ...m, lang: primary, brand_sel: b ? String(b.id) : m.brand_sel, department_id: d ? d.id : m.department_id }))
+    const notes = []
+    if (r.meta.brand && !b) notes.push(t('Brand “{x}” was not found — please choose one.', { x: r.meta.brand }))
+    if (!d) notes.push(r.meta.department ? t('Department “{x}” was not found — please choose one.', { x: r.meta.department }) : t('No department in the file — please choose one.'))
+    return notes
   }
 
   async function addImages(i, e) {
@@ -155,6 +174,7 @@ export function SopUploadPage({ editId = null, onBack = null }) {
       )}
 
       <div className="cs-form" style={{ maxWidth: '52rem' }}>
+        {!editId && <TemplateUpload kind="sop" variant="cs" multiple={false} onParsed={applyTemplate} onText={(text) => { setSource(text); setAiOpen(true) }} />}
         {!docs[lang] && LANGS.some((l) => docs[l]) && <p className="cs-muted">{t('No version in this language yet — fill it in, or leave it empty to have it translated when you publish.')}</p>}
         <div className="cs-form-row">
           <Field label={t('Brand')} hint={t('Blank or All = company-wide.')}>
@@ -246,7 +266,7 @@ export function SopUploadPage({ editId = null, onBack = null }) {
           <button type="button" className="cs-btn cs-btn--primary" onClick={() => save(true)} disabled={busy || !canSave}>{busy === 'publish' ? t('Publishing…') : t('Save & publish')}</button>
         </div>
         {!editId && (
-          <details className="cs-form">
+          <details className="cs-form" open={aiOpen} onToggle={(e) => setAiOpen(e.currentTarget.open)}>
             <summary style={{ cursor: 'pointer' }}>{t('Source text · Structure with AI')}</summary>
             <Field label={t('Source text')} hint={t('Optional. AI turns raw text into the fixed SOP format; you review everything before saving.')}>
               <textarea rows={8} value={source} onChange={(e) => setSource(e.target.value)} placeholder={t('Paste SOP text here…')} />
@@ -259,8 +279,6 @@ export function SopUploadPage({ editId = null, onBack = null }) {
               <button type="button" className="cs-btn" onClick={structure} disabled={busy || source.trim().length < 10}>
                 {busy === 'ai' ? t('Structuring…') : t('Structure with AI')}
               </button>
-              <a className="cs-link" href="/sop-templates/sop-template-zh.md" download>Template (繁中)</a>
-              <a className="cs-link" href="/sop-templates/sop-template-en.md" download>Template (EN)</a>
             </div>
           </details>
         )}

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { recipeApi } from '../api/recipes'
 import { sopApi } from '../api/sops'
 import { useLang } from '../i18n/LanguageContext'
+import { TemplateUpload } from './TemplateUpload'
+import { matchOption } from './templateParser'
 import './sop.css'
 
 // Create / edit recipes. Same bilingual layout as the SOP form, used by both the main app (RECIPES tab)
@@ -52,6 +54,7 @@ export function RecipeFormPage({ onBack, editId = null }) {
   const [source, setSource] = useState('')
   const [aiBusy, setAiBusy] = useState(false)
   const [aiError, setAiError] = useState(null)
+  const [aiOpen, setAiOpen] = useState(false)
   const shown = view === 'both' ? LANGS : [view]
 
   useEffect(() => {
@@ -135,6 +138,24 @@ export function RecipeFormPage({ onBack, editId = null }) {
     } catch (err) {
       patch(it.key, { status: 'idle', error: t(err.message) })
     }
+  }
+
+  // A filled-in template becomes one new card (replacing the last one if it is still empty).
+  const applyTemplate = (r) => {
+    const b = fixedBrand ?? matchOption(r.meta.brand, brands)
+    const code = /new|新增/i.test(r.meta.code) ? '' : r.meta.code.match(/[A-Z0-9]{2,6}-[A-Z]{2,5}-\d{1,4}/i)?.[0] ?? ''
+    const item = aligned({
+      ...newItem(), code, brandSel: b ? String(b.id) : '',
+      last: r.zh ? 'zh' : 'en',
+      ...(r.en && { en: fromContent(r.en) }),
+      ...(r.zh && { zh: fromContent(r.zh) }),
+    })
+    setItems((list) => {
+      const last = list[list.length - 1]
+      const reuse = last && !filled(last.en) && !filled(last.zh) && !last.id
+      return reuse ? [...list.slice(0, -1), item] : [...list, item]
+    })
+    return !b && !canAll ? [r.meta.brand ? t('Brand “{x}” was not found — please choose one.', { x: r.meta.brand }) : t('No brand in the file — please choose one.')] : []
   }
 
   async function structure() {
@@ -230,8 +251,10 @@ export function RecipeFormPage({ onBack, editId = null }) {
       </div>
       {noScope && <p className="sop-error">{t('Your account has no brand yet — please contact an admin.')}</p>}
 
+      {!editId && <TemplateUpload kind="recipe" onParsed={applyTemplate} onText={(text) => { setSource(text); setAiOpen(true) }} />}
+
       {!editId && (
-        <details className="sop-ai-box">
+        <details className="sop-ai-box" open={aiOpen} onToggle={(e) => setAiOpen(e.currentTarget.open)}>
           <summary>{t('Source text · Structure with AI')}</summary>
           <p className="sop-sub">{t('Optional. AI turns the filled-in template into the fixed recipe format; you review everything before saving.')}</p>
           <textarea className="sop-input sop-input--sm" rows={6} value={source} onChange={(e) => setSource(e.target.value)} placeholder={t('Paste recipe text here…')} />
@@ -241,8 +264,6 @@ export function RecipeFormPage({ onBack, editId = null }) {
               <input type="file" hidden accept=".md,.markdown,.txt,text/plain,text/markdown" onChange={async (e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) setSource(await f.text()) }} />
             </label>
             <button type="button" className="sop-btn sop-btn--sm" disabled={aiBusy || source.trim().length < 10} onClick={structure}>{aiBusy ? t('Structuring…') : t('Structure with AI')}</button>
-            <a className="sop-link" href="/recipe-templates/recipe-template-zh.md" download>Template (繁中)</a>
-            <a className="sop-link" href="/recipe-templates/recipe-template-en.md" download>Template (EN)</a>
           </div>
           {aiError && <p className="sop-error">{aiError}</p>}
         </details>

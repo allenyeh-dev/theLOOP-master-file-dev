@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { sopApi } from '../api/sops'
 import { useAuth } from '../context/AuthContext'
 import { useLang } from '../i18n/LanguageContext'
+import { TemplateUpload } from './TemplateUpload'
+import { matchOption } from './templateParser'
 
 const LANGS = ['en', 'zh']
 const LANG_LABEL = { en: 'English', zh: '中文' }
@@ -104,6 +106,31 @@ export function SopSubmitPage({ onBack, editId = null }) {
     return out
   }
 
+  // A filled-in template becomes one new card (replacing the last one if it is still empty).
+  // Brand / department are matched to the user's own options; otherwise the user picks them.
+  const applyTemplate = (r) => {
+    const base = newItem(user)
+    const b = brands.length === 1 ? brands[0] : matchOption(r.meta.brand, brands)
+    const d = depts.length === 1 ? depts[0] : matchOption(r.meta.department, depts)
+    const item = aligned({
+      ...base,
+      brandId: b ? String(b.id) : base.brandId,
+      deptId: d ? String(d.id) : base.deptId,
+      last: r.zh ? 'zh' : 'en',
+      ...(r.en && { en: fromContent(r.en) }),
+      ...(r.zh && { zh: fromContent(r.zh) }),
+    })
+    setItems((list) => {
+      const last = list[list.length - 1]
+      const reuse = last && !filled(last.en) && !filled(last.zh) && !last.id
+      return reuse ? [...list.slice(0, -1), item] : [...list, item]
+    })
+    const notes = []
+    if (!b) notes.push(r.meta.brand ? t('Brand “{x}” was not found — please choose one.', { x: r.meta.brand }) : t('No brand in the file — please choose one.'))
+    if (!d) notes.push(r.meta.department ? t('Department “{x}” was not found — please choose one.', { x: r.meta.department }) : t('No department in the file — please choose one.'))
+    return notes
+  }
+
   // The original is the only side with content, or the one edited last.
   const primaryOf = (it) => {
     const have = LANGS.filter((l) => it[l].title.trim())
@@ -197,6 +224,7 @@ export function SopSubmitPage({ onBack, editId = null }) {
         ))}
       </div>
       {noScope && <p className="sop-error">{t('你的帳號尚未設定品牌或部門，請聯絡管理員。')}</p>}
+      {!editId && <TemplateUpload kind="sop" onParsed={applyTemplate} />}
 
       {items.map((it, n) => {
         const done = it.status === 'done'
