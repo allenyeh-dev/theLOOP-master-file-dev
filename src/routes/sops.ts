@@ -784,7 +784,7 @@ sopRoutes.post('/:id/flag', async (c) => {
 
 // Make `row` the live version. Assigns the SOP code (e.g. SF-BOH-002: brand code or ALL, department,
 // running number) on first publish only.
-function publishStatements(db: D1Database, row: VersionRow, brands: { id: number; code?: string | null }[]) {
+export function publishStatements(db: D1Database, row: VersionRow, brands: { id: number; code?: string | null }[]) {
   return [
     db.prepare(`UPDATE sop_versions SET status = 'superseded' WHERE sop_id = ? AND status = 'published'`).bind(row.sop_id),
     db.prepare(`UPDATE sop_versions SET status = 'published', published_at = datetime('now') WHERE id = ?`).bind(row.id),

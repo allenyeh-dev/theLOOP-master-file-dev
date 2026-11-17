@@ -8,6 +8,7 @@ import { happeningRoutes } from './routes/happenings'
 import { adminUserRoutes } from './routes/admin-users'
 import { consoleRoutes } from './routes/console'
 import { sopRoutes } from './routes/sops'
+import { publicSopRoutes } from './routes/public-sops'
 import { pushRoutes } from './routes/push'
 import { playbookRoutes } from './routes/playbook'
 import { recipeRoutes, recipeViewRoutes } from './routes/recipes'
@@ -24,6 +25,8 @@ type Bindings = {
   ANTHROPIC_API_KEY?: string
   ANTHROPIC_WORKSPACE_ID?: string
   SOP_AI_MODEL?: string
+  SOP_INGEST_KEY?: string
+  SOP_INGEST_USER_ID?: string
   RESEND_API_KEY?: string
   MAIL_FROM?: string
   VAPID_PUBLIC_KEY?: string
@@ -78,6 +81,7 @@ app.route('/api/brands', brandRoutes)
 app.route('/api/admin/users', adminUserRoutes)
 app.route('/api/console', consoleRoutes)
 app.route('/api/sops', sopRoutes)
+app.route('/api/public/sops', publicSopRoutes)
 app.route('/api/push', pushRoutes)
 app.route('/api/playbook', playbookRoutes)
 app.route('/api/recipe-library', recipeViewRoutes)
